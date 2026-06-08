@@ -4,11 +4,20 @@ export const CONSERVATION_STATUSES = [
 
 export const REGIONS = ['Africa', 'Americas', 'Asia', 'Australia', 'Europe', 'Polar'];
 
-export const BIOMES = ['Savanna', 'Tropical Rainforest', 'Temperate Forest', 'Desert', 'Grassland', 'Wetland', 'Alpine', 'Tundra', 'Boreal Forest', 'Mediterranean'];
+export const BIOMES = ['Temperate', 'Tropical', 'Grassland', 'Savanna', 'Desert', 'Wetland', 'Alpine', 'Tundra', 'Boreal', 'Mediterranean', 'Rainforest', 'Scrubland'];
 
 export const DISPOSITION = ['Keep', 'Sell', 'Release'];
 
 export const SEXES = ['Male', 'Female'];
+
+export const AGE_STAGES = ['Juvenile', 'Adult', 'Elder'];
+
+export const APPEAL_TIERS = [
+  { label: 'Normal', min: 0, max: 999, color: '#7a9460' },
+  { label: 'Bronze', min: 1000, max: 2499, color: '#c87a30' },
+  { label: 'Silver', min: 2500, max: 4499, color: '#8ab0c8' },
+  { label: 'Gold', min: 4500, max: 5000, color: '#c8a830' },
+];
 
 export const HABITAT_STATUSES = ['Planning', 'Under Construction', 'Active', 'Needs Upgrade'];
 
@@ -38,10 +47,10 @@ export const SAMPLE_ANIMALS = [
 ];
 
 export const SAMPLE_BREEDING = [
-  { id: 1, species: 'Amur Tiger', name: 'Kira', sex: 'Female', age: 4, fertility: 92, immunity: 88, size: 85, longevity: 90, appeal: 4.8, mate: 'Baikal', offspring: 'Sasha, Nova', disposition: 'Keep' },
-  { id: 2, species: 'Amur Tiger', name: 'Baikal', sex: 'Male', age: 6, fertility: 88, immunity: 94, size: 96, longevity: 87, appeal: 4.9, mate: 'Kira', offspring: 'Sasha, Nova', disposition: 'Keep' },
-  { id: 3, species: 'Amur Tiger', name: 'Sasha', sex: 'Male', age: 1, fertility: 78, immunity: 82, size: 80, longevity: 85, appeal: 4.5, mate: '', offspring: '', disposition: 'Sell' },
-  { id: 4, species: 'African Elephant', name: 'Amara', sex: 'Female', age: 12, fertility: 95, immunity: 91, size: 88, longevity: 93, appeal: 4.7, mate: 'Kibo', offspring: 'Toto, Zuri', disposition: 'Keep' },
+  { id: 1, species: 'Amur Tiger', name: 'Kira', sex: 'Female', ageStage: 'Adult', fertility: 92, immunity: 88, size: 85, longevity: 90, appeal: 3200, mate: 'Baikal', offspring: 'Sasha, Nova', disposition: 'Keep' },
+  { id: 2, species: 'Amur Tiger', name: 'Baikal', sex: 'Male', ageStage: 'Adult', fertility: 88, immunity: 94, size: 96, longevity: 87, appeal: 4600, mate: 'Kira', offspring: 'Sasha, Nova', disposition: 'Keep' },
+  { id: 3, species: 'Amur Tiger', name: 'Sasha', sex: 'Male', ageStage: 'Juvenile', fertility: 78, immunity: 82, size: 80, longevity: 85, appeal: 800, mate: '', offspring: '', disposition: 'Sell' },
+  { id: 4, species: 'African Elephant', name: 'Amara', sex: 'Female', ageStage: 'Elder', fertility: 95, immunity: 91, size: 88, longevity: 93, appeal: 2800, mate: 'Kibo', offspring: 'Toto, Zuri', disposition: 'Keep' },
 ];
 
 export const SAMPLE_CONSERVATION = [
@@ -52,10 +61,10 @@ export const SAMPLE_CONSERVATION = [
 ];
 
 export const SAMPLE_HABITATS = [
-  { id: 1, region: 'Asia', biomes: 'Boreal Forest', species: 'Amur Tiger', size: 4200, guestRating: 4.8, features: 'Water feature, climbing rocks, viewing platform', status: 'Active' },
-  { id: 2, region: 'Africa', biomes: 'Savanna', species: 'African Elephant', size: 8500, guestRating: 4.9, features: 'Mud bath, waterhole, shade trees', status: 'Active' },
-  { id: 3, region: 'Asia', biomes: 'Temperate Forest', species: 'Giant Panda', size: 3200, guestRating: 4.7, features: 'Bamboo grove, enrichment area', status: 'Active' },
-  { id: 4, region: 'Africa', biomes: 'Grassland', species: 'Black Rhinoceros', size: 5100, guestRating: 4.4, features: 'Mud pit, salt lick', status: 'Needs Upgrade' },
+  { id: 1, regions: ['Asia'], biomes: ['Boreal', 'Temperate'], species: 'Amur Tiger', size: 4200, guestRating: 4.8, features: 'Water feature, climbing rocks, viewing platform', status: 'Active' },
+  { id: 2, regions: ['Africa'], biomes: ['Savanna', 'Grassland'], species: 'African Elephant', size: 8500, guestRating: 4.9, features: 'Mud bath, waterhole, shade trees', status: 'Active' },
+  { id: 3, regions: ['Asia'], biomes: ['Temperate'], species: 'Giant Panda', size: 3200, guestRating: 4.7, features: 'Bamboo grove, enrichment area', status: 'Active' },
+  { id: 4, regions: ['Africa', 'Americas'], biomes: ['Grassland', 'Scrubland'], species: 'Black Rhinoceros', size: 5100, guestRating: 4.4, features: 'Mud pit, salt lick', status: 'Needs Upgrade' },
 ];
 
 export const SAMPLE_BLOODLINES = [
