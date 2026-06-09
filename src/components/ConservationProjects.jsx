@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { Modal, Field, Input, Select, Btn, Badge, ProgressBar, EmptyState } from './UI.jsx';
-import { SPECIES_LIST } from '../data/constants.js';
+import { } from "../data/constants.js";
 
 const EMPTY = { species: '', goalPop: '', currentPop: '', releaseGoal: '', released: '' };
 
-export default function ConservationProjects({ conservation, setConservation, animals }) {
+export default function ConservationProjects({ conservation, setConservation, animals, speciesList }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY);
@@ -91,7 +91,7 @@ export default function ConservationProjects({ conservation, setConservation, an
             <Field label="Species">
               <select value={form.species} onChange={f('species')} style={{ width: '100%', background: '#111a0f', border: '1px solid #2e4028', borderRadius: 6, padding: '7px 10px', color: form.species ? '#c8d8a8' : '#5a7050', fontSize: 14, boxSizing: 'border-box', outline: 'none' }}>
                 <option value="">Select species…</option>
-                {SPECIES_LIST.map(s => <option key={s} value={s}>{s}</option>)}
+                {speciesList.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </Field>
           </div>

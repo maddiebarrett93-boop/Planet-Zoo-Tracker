@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Plus, Pencil, Trash2, Search } from 'lucide-react';
 import { Modal, Field, Input, Select, Textarea, Btn, Badge, EmptyState } from './UI.jsx';
-import { CONSERVATION_STATUSES, SPECIES_LIST } from '../data/constants.js';
+import { CONSERVATION_STATUSES } from "../data/constants.js";
 
 const EMPTY = { species: '', habitat: '', males: 0, females: 0, conservationStatus: '', notes: '' };
 
-export default function AnimalInventory({ animals, setAnimals }) {
+export default function AnimalInventory({ animals, setAnimals, speciesList }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY);
@@ -104,7 +104,7 @@ export default function AnimalInventory({ animals, setAnimals }) {
             <Field label="Species">
               <select value={form.species} onChange={f('species')} style={{ width: '100%', background: '#111a0f', border: '1px solid #2e4028', borderRadius: 6, padding: '7px 10px', color: form.species ? '#c8d8a8' : '#5a7050', fontSize: 14, boxSizing: 'border-box', outline: 'none' }}>
                 <option value="">Select species…</option>
-                {SPECIES_LIST.map(s => <option key={s} value={s}>{s}</option>)}
+                {speciesList.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </Field>
           </div>
