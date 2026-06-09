@@ -6,6 +6,7 @@ import ConservationProjects from './components/ConservationProjects.jsx';
 import HabitatPlanner from './components/HabitatPlanner.jsx';
 import BloodlineTracker from './components/BloodlineTracker.jsx';
 import Peeps from './components/Peeps.jsx';
+import Zoopedia from './components/Zoopedia.jsx';
 import {
   SAMPLE_ANIMALS, SAMPLE_ROSTER, SAMPLE_CONSERVATION,
   SAMPLE_HABITATS, SAMPLE_BLOODLINES, SAMPLE_PEEPS,
@@ -42,6 +43,7 @@ const TABS = [
   { id: 'habitats',     label: '🏕️', full: 'Habitats' },
   { id: 'bloodlines',   label: '🌳', full: 'Bloodlines' },
   { id: 'peeps',        label: '🎪', full: 'Peeps' },
+  { id: 'zoopedia',     label: '📖', full: 'Zoopedia' },
 ];
 
 export default function App() {
@@ -53,6 +55,7 @@ export default function App() {
   const [habitats, setHabitats]   = useState(SAMPLE_HABITATS);
   const [bloodlines, setBloodlines] = useState(SAMPLE_BLOODLINES);
   const [peeps, setPeeps]         = useState(SAMPLE_PEEPS);
+  const [zoopedia, setZoopedia]   = useState({});
   const [zooConfig, setZooConfig] = useState({ zooName: '', customStats: '' });
 
   const theme = THEMES[pzVersion];
@@ -132,6 +135,7 @@ export default function App() {
         {tab === 'habitats'     && <HabitatPlanner habitats={habitats} setHabitats={setHabitats} pzVersion={pzVersion} speciesList={speciesList} theme={theme} animalDb={animalDb} />}
         {tab === 'bloodlines'   && <BloodlineTracker bloodlines={bloodlines} setBloodlines={setBloodlines} roster={roster} speciesList={speciesList} theme={theme} />}
         {tab === 'peeps'        && <Peeps peeps={peeps} setPeeps={setPeeps} theme={theme} />}
+        {tab === 'zoopedia'     && <Zoopedia theme={theme} />}
       </div>
     </div>
   );

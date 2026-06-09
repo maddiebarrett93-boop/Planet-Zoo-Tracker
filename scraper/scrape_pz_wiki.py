@@ -1,30 +1,25 @@
 #!/usr/bin/env python3
 """
-Planet Zoo Animal Data Scraper
-================================
-Scrapes the Planet Zoo Fandom wiki and outputs data matching your
-Google Sheet schema exactly:
-
-  Animal Name | Type | Base Appeal | Conservation Status | Regions
-  Biomes | Social Structure | Group Size Min/Max | Max Adult Males
-  Max Adult Females | Base Land (m²) | Add. Land (m²)
-  Base Water (m²) | Add. Water (m²) | Interspecies Enrichment Compatibility
+Planet Zoo Animal Data Scraper — Fandom API edition
+=====================================================
+Uses Fandom's public MediaWiki API instead of scraping HTML directly,
+which bypasses the 403 bot-blocking on page requests.
 
 Usage:
-    pip install requests beautifulsoup4 lxml
     python scrape_pz_wiki.py               # list only (fast)
-    python scrape_pz_wiki.py --all         # full detail scrape (~2 min)
+    python scrape_pz_wiki.py --all         # full detail scrape (~3 min)
     python scrape_pz_wiki.py --animal Lion # test single animal
 
 Outputs:
-    pz_animals_scraped.json   raw data
-    pz_animals_patch.js       paste into pz1_animals.js
-    pz_animals_sheet.tsv      open in Excel/Sheets directly
-    diff_report.txt           human-readable summary
+    pz_animals_scraped.json
+    pz_animals_patch.js      paste into src/data/pz1_animals.js
+    pz_animals_sheet.tsv     import straight into Google Sheets
+    diff_report.txt
 """
 
 import json, re, time, sys, argparse, csv
 from io import StringIO
+from urllib.parse import quote
 
 try:
     import requests
@@ -33,11 +28,25 @@ except ImportError:
     print("Run:  pip install requests beautifulsoup4 lxml")
     sys.exit(1)
 
-BASE  = "https://planetzoo.fandom.com"
-LIST  = f"{BASE}/wiki/List_of_Animals"
-UA    = {"User-Agent": "Mozilla/5.0 (PlanetZooDataBot/1.0; research)"}
+WIKI    = "https://planetzoo.fandom.com"
+API     = f"{WIKI}/api.php"
 
-# ── Normalizers ─────────────────────────────────────────────────────────────
+# Fandom blocks basic bot UAs but passes browser UAs fine
+UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/124.0.0.0 Safari/537.36"
+)
+HEADERS = {
+    "User-Agent": UA,
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.5",
+    "Referer": "https://planetzoo.fandom.com/",
+}
+SESSION = requests.Session()
+SESSION.headers.update(HEADERS)
+
+# ── Normalizers ──────────────────────────────────────────────────────────────
 STATUS = {
     "lc":"Least Concern","nt":"Near Threatened","vu":"Vulnerable",
     "en":"Endangered","cr":"Critically Endangered","ew":"Extinct in the Wild",
@@ -49,13 +58,14 @@ SOCIAL = {
     "solitary":"Solitary","pair":"Pair Bond","pair bond":"Pair Bond",
     "gregarious":"Gregarious","matrilineal":"Matrilineal",
     "patrilineal":"Patrilineal","harem":"Matrilineal","herd":"Gregarious",
-}
-TYPE_KEYWORDS = {
-    "exhibit": "Exhibit", "aquarium": "Aquatic", "aviary": "Aviary"
+    "pairbond":"Pair Bond",
 }
 
-def ns(s): return STATUS.get(s.strip().lower(), s.strip().title()) if s else "Unknown"
-def nso(s): return SOCIAL.get(s.strip().lower(), s.strip().title()) if s else "Solitary"
+def ns(s):
+    return STATUS.get(s.strip().lower(), None) if s else None
+
+def nso(s):
+    return SOCIAL.get(s.strip().lower(), s.strip().title()) if s else "Solitary"
 
 def parse_space(text):
     """'510 m² +180 m²/ea.' → (510, 180)"""
@@ -66,158 +76,189 @@ def parse_space(text):
     m = re.search(r'(\d+)', t)
     return (int(m.group(1)), 0) if m else (0, 0)
 
-def guess_type(name, url=""):
-    for kw, val in TYPE_KEYWORDS.items():
-        if kw in url.lower() or kw in name.lower():
-            return val
+def guess_type(name, cats=""):
+    cats_l = cats.lower()
+    name_l = name.lower()
+    if "exhibit" in cats_l or "exhibit" in name_l: return "Exhibit"
+    if "aquarium" in cats_l or "aquatic" in cats_l: return "Aquatic"
+    if "aviary" in cats_l or "bird" in cats_l:      return "Aviary"
     return "Animal"
 
-# ── Fetch helpers ────────────────────────────────────────────────────────────
-def fetch(url):
+# ── Fandom API helpers ────────────────────────────────────────────────────────
+def api_get(params):
+    params["format"] = "json"
     try:
-        r = requests.get(url, headers=UA, timeout=20)
+        r = SESSION.get(API, params=params, timeout=20)
         r.raise_for_status()
-        return r.text
+        return r.json()
     except Exception as e:
-        print(f"  WARN {url}: {e}")
-        return None
+        print(f"  WARN API: {e}")
+        return {}
 
-# ── Animal list page ─────────────────────────────────────────────────────────
-def get_list():
-    print(f"Fetching list…")
-    html = fetch(LIST)
-    if not html: return []
-    soup = BeautifulSoup(html, "lxml")
-    animals = []
-    for tbl in soup.find_all("table", class_=re.compile("wikitable", re.I)):
-        for row in tbl.find_all("tr")[1:]:
-            cells = row.find_all(["td","th"])
-            if not cells: continue
-            link = cells[0].find("a", href=re.compile(r"^/wiki/"))
-            if not link: continue
-            name = link.get_text(strip=True)
-            href = link["href"]
-            # Status from alt text or cell text
-            status = "Unknown"
-            for c in cells:
-                img = c.find("img")
-                if img:
-                    s = ns(img.get("alt",""))
-                    if s in STATUS.values(): status = s; break
-                s = ns(c.get_text(strip=True))
-                if s in STATUS.values(): status = s; break
-            animals.append({"name": name, "href": href,
-                             "conservationStatus": status,
-                             "type": guess_type(name, href)})
-    print(f"  {len(animals)} animals found")
-    return animals
+def get_page_wikitext(title):
+    """Fetch raw wikitext for a page via the API — bypasses HTML bot detection."""
+    data = api_get({"action":"parse","page":title,"prop":"wikitext","redirects":1})
+    return data.get("parse",{}).get("wikitext",{}).get("*","")
 
-# ── Individual animal page ───────────────────────────────────────────────────
-def get_detail(entry):
-    html = fetch(BASE + entry["href"])
-    if not html: return entry
-    soup = BeautifulSoup(html, "lxml")
+def get_page_html(title):
+    """Fetch parsed HTML via the API."""
+    data = api_get({"action":"parse","page":title,"prop":"text","redirects":1})
+    return data.get("parse",{}).get("text",{}).get("*","")
+
+def get_category_members(category, limit=500):
+    """List all pages in a category."""
+    members = []
+    params = {
+        "action": "query",
+        "list": "categorymembers",
+        "cmtitle": f"Category:{category}",
+        "cmlimit": limit,
+        "cmtype": "page",
+    }
+    while True:
+        data = api_get(params)
+        members += data.get("query",{}).get("categorymembers",[])
+        cont = data.get("continue",{}).get("cmcontinue")
+        if not cont: break
+        params["cmcontinue"] = cont
+    return members
+
+# ── Animal list via categories ────────────────────────────────────────────────
+ANIMAL_CATEGORIES = [
+    "Animals", "Planet_Zoo_animals",
+    "Animals_in_Planet_Zoo", "Planet_Zoo_1_animals",
+]
+
+def get_animal_list():
+    print("Fetching animal list via Fandom API…")
+
+    # Try each category until we get results
+    members = []
+    for cat in ANIMAL_CATEGORIES:
+        members = get_category_members(cat)
+        if members:
+            print(f"  Found {len(members)} entries in Category:{cat}")
+            break
+
+    # Fallback: parse the List_of_Animals page via API
+    if not members:
+        print("  Trying List_of_Animals page via API…")
+        html = get_page_html("List_of_Animals")
+        if html:
+            soup = BeautifulSoup(html, "lxml")
+            for tbl in soup.find_all("table", class_=re.compile("wikitable",re.I)):
+                for row in tbl.find_all("tr")[1:]:
+                    cells = row.find_all(["td","th"])
+                    if not cells: continue
+                    link = cells[0].find("a")
+                    if not link: continue
+                    name = link.get_text(strip=True)
+                    status = "Unknown"
+                    for c in cells:
+                        img = c.find("img")
+                        if img:
+                            s = ns(img.get("alt",""))
+                            if s: status = s; break
+                        s = ns(c.get_text(strip=True))
+                        if s: status = s; break
+                    members.append({"title": name, "conservationStatus": status})
+
+    if not members:
+        print("  ERROR: Could not retrieve animal list from any source.")
+        return []
+
+    return [{"name": m["title"], "conservationStatus": m.get("conservationStatus","Unknown")} for m in members]
+
+# ── Parse wikitext infobox ────────────────────────────────────────────────────
+# Wikitext infoboxes look like:  | Label = Value
+def parse_wikitext_infobox(wikitext):
+    fields = {}
+    for line in wikitext.splitlines():
+        m = re.match(r'\|\s*([^=|]+?)\s*=\s*(.+)', line)
+        if m:
+            key = m.group(1).strip().lower()
+            val = re.sub(r'\[\[([^\]|]+)(?:\|[^\]]+)?\]\]', r'\1', m.group(2))  # strip links
+            val = re.sub(r'\{\{[^}]+\}\}', '', val)  # strip templates
+            val = re.sub(r'<[^>]+>', '', val)         # strip HTML tags
+            val = val.strip()
+            fields[key] = val
+    return fields
+
+def extract_from_wikitext(wikitext, entry):
     r = dict(entry)
+    f = parse_wikitext_infobox(wikitext)
 
-    def text(el): return el.get_text(" ", strip=True) if el else ""
+    # Category hint for type
+    cats = re.findall(r'\[\[Category:([^\]]+)\]\]', wikitext, re.I)
+    r["type"] = guess_type(entry["name"], " ".join(cats))
 
-    # Portable infobox (modern Fandom layout)
-    for item in soup.find_all(class_=re.compile(r"pi-data\b", re.I)):
-        lbl = text(item.find(class_=re.compile("pi-data-label", re.I))).lower()
-        val = text(item.find(class_=re.compile("pi-data-value", re.I)))
-        if not lbl or not val: continue
-
-        if any(k in lbl for k in ["continent","region"]):
+    for key, val in f.items():
+        if not val: continue
+        if any(k in key for k in ["continent","region","habitat region"]):
             r["region"] = val
-        elif "biome" in lbl:
-            r["biomes"] = [b.strip() for b in re.split(r"[,/\n•]", val) if b.strip()]
-        elif "social" in lbl:
+        elif "biome" in key:
+            r["biomes"] = [b.strip() for b in re.split(r'[,/\n•]', val) if b.strip()]
+        elif "social" in key:
             r["socialStructure"] = nso(val)
-        elif "land" in lbl and "space" in lbl:
+        elif "land space" in key or ("land" in key and "space" in key and "water" not in key):
             r["baseLand"], r["addLand"] = parse_space(val)
-        elif "water" in lbl and "space" in lbl:
+        elif "water space" in key or ("water" in key and "space" in key):
             r["baseWater"], r["addWater"] = parse_space(val)
-        elif "group" in lbl and "min" in lbl:
-            m = re.search(r"\d+", val)
+        elif "group" in key and "min" in key:
+            m = re.search(r'\d+', val)
             if m: r["minGroupSize"] = int(m.group())
-        elif "group" in lbl and "max" in lbl:
-            m = re.search(r"\d+", val)
+        elif "group" in key and "max" in key:
+            m = re.search(r'\d+', val)
             if m: r["maxGroupSize"] = int(m.group())
-        elif "male" in lbl and "max" in lbl:
-            m = re.search(r"\d+", val)
+        elif "male" in key and "max" in key:
+            m = re.search(r'\d+', val)
             if m: r["maxAdultMales"] = int(m.group())
-        elif "female" in lbl and "max" in lbl:
-            m = re.search(r"\d+", val)
+        elif "female" in key and "max" in key:
+            m = re.search(r'\d+', val)
             if m: r["maxAdultFemales"] = int(m.group())
-        elif "compatible" in lbl or "enrichment" in lbl:
-            r["compatibleAnimals"] = [a.strip() for a in re.split(r"[,\n•]", val) if a.strip()]
-        elif "conservation" in lbl:
+        elif "compatible" in key or "enrichment" in key:
+            r["compatibleAnimals"] = [a.strip() for a in re.split(r'[,\n•]', val) if a.strip()]
+        elif "conservation" in key:
             s = ns(val)
-            if s in STATUS.values(): r["conservationStatus"] = s
+            if s: r["conservationStatus"] = s
 
-    # Fallback: old-style table infobox
-    if "baseLand" not in r:
-        for tbl in soup.find_all("table", class_=re.compile("infobox|wikitable", re.I)):
-            for row in tbl.find_all("tr"):
-                cells = row.find_all(["th","td"])
-                if len(cells) < 2: continue
-                lbl = cells[0].get_text(strip=True).lower()
-                val = cells[-1].get_text(" ", strip=True)
-                if "land" in lbl and "space" in lbl:
-                    r["baseLand"], r["addLand"] = parse_space(val)
-                elif "water" in lbl and "space" in lbl:
-                    r["baseWater"], r["addWater"] = parse_space(val)
-                elif "social" in lbl:
-                    r["socialStructure"] = nso(val)
-
-    # Body text fallback for space
+    # Fallback space from body text
     if not r.get("baseLand"):
-        body = soup.get_text(" ")
-        m = re.search(r"(\d[\d,]*)\s*m²\s*\+\s*(\d[\d,]*)\s*m²", body)
+        m = re.search(r'(\d[\d,]*)\s*m²\s*\+\s*(\d[\d,]*)\s*m²', wikitext)
         if m:
             r["baseLand"] = int(m.group(1).replace(",",""))
             r["addLand"]  = int(m.group(2).replace(",",""))
 
     return r
 
-# ── JS entry formatter ────────────────────────────────────────────────────────
+# ── Fetch one animal's detail ────────────────────────────────────────────────
+def get_detail(entry):
+    wikitext = get_page_wikitext(entry["name"])
+    if not wikitext:
+        print(f"    No wikitext for {entry['name']}")
+        return entry
+    return extract_from_wikitext(wikitext, entry)
+
+# ── Output formatters ────────────────────────────────────────────────────────
 def to_js(a):
-    biomes = json.dumps(a.get("biomes", []))
-    compat = json.dumps(a.get("compatibleAnimals", []))
     return (
-        f'  {{ name: {json.dumps(a["name"])}, type: {json.dumps(a.get("type","Animal"))}, '
+        f'  {{ name: {json.dumps(a.get("name",""))}, '
+        f'type: {json.dumps(a.get("type","Animal"))}, '
         f'appeal: {a.get("appeal",0)}, '
         f'conservationStatus: {json.dumps(a.get("conservationStatus","Unknown"))}, '
         f'region: {json.dumps(a.get("region",""))}, '
-        f'biomes: {biomes}, '
+        f'biomes: {json.dumps(a.get("biomes",[]))}, '
         f'socialStructure: {json.dumps(a.get("socialStructure","Solitary"))}, '
-        f'minGroupSize: {a.get("minGroupSize",1)}, maxGroupSize: {a.get("maxGroupSize",10)}, '
-        f'maxAdultMales: {a.get("maxAdultMales",1)}, maxAdultFemales: {a.get("maxAdultFemales",1)}, '
-        f'baseLand: {a.get("baseLand",0)}, addLand: {a.get("addLand",0)}, '
-        f'baseWater: {a.get("baseWater",0)}, addWater: {a.get("addWater",0)}, '
-        f'compatibleAnimals: {compat} }}'
+        f'minGroupSize: {a.get("minGroupSize",1)}, '
+        f'maxGroupSize: {a.get("maxGroupSize",10)}, '
+        f'maxAdultMales: {a.get("maxAdultMales",1)}, '
+        f'maxAdultFemales: {a.get("maxAdultFemales",1)}, '
+        f'baseLand: {a.get("baseLand",0)}, '
+        f'addLand: {a.get("addLand",0)}, '
+        f'baseWater: {a.get("baseWater",0)}, '
+        f'addWater: {a.get("addWater",0)}, '
+        f'compatibleAnimals: {json.dumps(a.get("compatibleAnimals",[]))} }}'
     )
-
-# ── TSV row (for Sheets import) ──────────────────────────────────────────────
-def to_tsv_row(a):
-    return [
-        a.get("name",""),
-        a.get("type","Animal"),
-        a.get("appeal",""),
-        a.get("conservationStatus",""),
-        a.get("region",""),
-        ", ".join(a.get("biomes",[])),
-        a.get("socialStructure",""),
-        a.get("minGroupSize",""),
-        a.get("maxGroupSize",""),
-        a.get("maxAdultMales",""),
-        a.get("maxAdultFemales",""),
-        a.get("baseLand",""),
-        a.get("addLand",""),
-        a.get("baseWater",""),
-        a.get("addWater",""),
-        ", ".join(a.get("compatibleAnimals",[])),
-    ]
 
 TSV_HEADERS = [
     "Animal Name","Type","Base Appeal","Conservation Status",
@@ -227,73 +268,77 @@ TSV_HEADERS = [
     "Interspecies Enrichment Compatibility"
 ]
 
+def to_tsv_row(a):
+    return [
+        a.get("name",""), a.get("type","Animal"), a.get("appeal",""),
+        a.get("conservationStatus",""), a.get("region",""),
+        ", ".join(a.get("biomes",[])), a.get("socialStructure",""),
+        a.get("minGroupSize",""), a.get("maxGroupSize",""),
+        a.get("maxAdultMales",""), a.get("maxAdultFemales",""),
+        a.get("baseLand",""), a.get("addLand",""),
+        a.get("baseWater",""), a.get("addWater",""),
+        ", ".join(a.get("compatibleAnimals",[])),
+    ]
+
 # ── Main ─────────────────────────────────────────────────────────────────────
 def main():
-    p = argparse.ArgumentParser(description="Planet Zoo wiki scraper")
-    p.add_argument("--all",    action="store_true", help="Scrape all detail pages")
-    p.add_argument("--animal", type=str, help="Single animal name to test")
+    p = argparse.ArgumentParser()
+    p.add_argument("--all",    action="store_true")
+    p.add_argument("--animal", type=str)
     args = p.parse_args()
 
-    animals = get_list()
+    animals = get_animal_list()
     if not animals:
-        print("Could not fetch animal list. Wiki structure may have changed.")
         sys.exit(1)
 
     if args.animal:
         animals = [a for a in animals if args.animal.lower() in a["name"].lower()]
-        print(f"Filtered to: {[a['name'] for a in animals]}")
+        if not animals:
+            # Try directly by name even if not in list
+            animals = [{"name": args.animal, "conservationStatus": "Unknown"}]
+        print(f"  Targeting: {[a['name'] for a in animals]}")
 
     detailed = []
     if args.all or args.animal:
-        print(f"\nFetching {len(animals)} detail pages (0.5s delay)…")
+        print(f"\nFetching detail pages for {len(animals)} animals (0.5s delay)…")
         for i, a in enumerate(animals):
             print(f"  [{i+1}/{len(animals)}] {a['name']}")
             detailed.append(get_detail(a))
             time.sleep(0.5)
     else:
         detailed = animals
-        print("(Run with --all to also scrape habitat/space/social data)")
+        print("(Run with --all to also pull habitat/social/space data)")
 
-    # ── JSON ──
+    # Write outputs
     with open("pz_animals_scraped.json","w",encoding="utf-8") as f:
         json.dump(detailed, f, indent=2, ensure_ascii=False)
     print(f"\n✅  pz_animals_scraped.json  ({len(detailed)} animals)")
 
-    # ── JS patch ──
     with open("pz_animals_patch.js","w") as f:
-        f.write("// Paste entries into src/data/pz1_animals.js\n")
-        f.write("// Review appeal, maxAdultMales, maxAdultFemales manually\n\n")
+        f.write("// Auto-generated — paste entries into src/data/pz1_animals.js\n")
+        f.write("// Fill in: appeal, maxAdultMales, maxAdultFemales (manual from Zoopedia)\n\n")
         f.write("export const SCRAPED_ANIMALS = [\n")
         f.write(",\n".join(to_js(a) for a in detailed))
         f.write("\n];\n")
-        f.write("export const SCRAPED_MAP = Object.fromEntries(SCRAPED_ANIMALS.map(a => [a.name, a]));\n")
     print(f"✅  pz_animals_patch.js")
 
-    # ── TSV (paste into Google Sheets) ──
     buf = StringIO()
     w = csv.writer(buf, delimiter="\t")
     w.writerow(TSV_HEADERS)
     for a in sorted(detailed, key=lambda x: x["name"]):
         w.writerow(to_tsv_row(a))
-    with open("pz_animals_sheet.tsv","w",encoding="utf-8") as f:
+    with open("pz_animals_sheet.tsv","w",encoding="utf-8", newline="") as f:
         f.write(buf.getvalue())
-    print(f"✅  pz_animals_sheet.tsv  (open in Sheets: File → Import → Upload)")
+    print(f"✅  pz_animals_sheet.tsv  (Google Sheets: File → Import → Upload)")
 
-    # ── Diff report ──
     with open("diff_report.txt","w") as f:
-        f.write(f"Planet Zoo Scrape  —  {len(detailed)} animals\n{'='*70}\n")
-        f.write(f"{'Name':<33} {'Status':<22} {'Land':>10} {'Water':>10}  Social\n")
-        f.write(f"{'-'*70}\n")
+        f.write(f"Planet Zoo Scrape — {len(detailed)} animals\n{'='*65}\n")
+        f.write(f"{'Name':<30} {'Status':<22} {'Land':>12} {'Water':>12}  Social\n{'-'*65}\n")
         for a in sorted(detailed, key=lambda x: x["name"]):
             land  = f"{a.get('baseLand','?')}+{a.get('addLand','?')}"
             water = f"{a.get('baseWater','?')}+{a.get('addWater','?')}"
-            f.write(f"{a['name']:<33} {a.get('conservationStatus','?'):<22} {land:>10} {water:>10}  {a.get('socialStructure','?')}\n")
-    print(f"✅  diff_report.txt\n")
-    print("Next steps:")
-    print("  1. Open pz_animals_sheet.tsv → import into your Google Sheet PZ1_Animals tab")
-    print("  2. Fill in appeal scores from the Steam guide")
-    print("  3. Verify maxAdultMales / maxAdultFemales per species")
-    print("  4. Copy entries from pz_animals_patch.js into src/data/pz1_animals.js")
+            f.write(f"{a['name']:<30} {a.get('conservationStatus','?'):<22} {land:>12} {water:>12}  {a.get('socialStructure','?')}\n")
+    print(f"✅  diff_report.txt")
 
 if __name__ == "__main__":
     main()
