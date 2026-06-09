@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Dashboard from './components/Dashboard.jsx';
 import AnimalInventory from './components/AnimalInventory.jsx';
 import Roster from './components/Roster.jsx';
@@ -9,21 +9,43 @@ import Peeps from './components/Peeps.jsx';
 import {
   SAMPLE_ANIMALS, SAMPLE_ROSTER, SAMPLE_CONSERVATION,
   SAMPLE_HABITATS, SAMPLE_BLOODLINES, SAMPLE_PEEPS,
-  PZ1_SPECIES, PZ2_SPECIES
+  PZ1_ANIMALS, PZ2_ANIMALS
 } from './data/constants.js';
 
+// ─── Theme system ───────────────────────────────────────────────────────────
+export const THEMES = {
+  PZ1: {
+    accent:      '#0f9a6d',
+    accentDim:   '#0a6b4c',
+    accentLight: '#1bc98a',
+    accentBg:    '#041a12',
+    accentBorder:'#0d5c3a',
+    tabActive:   '#071a12',
+    name: 'Planet Zoo 1',
+  },
+  PZ2: {
+    accent:      '#616f43',
+    accentDim:   '#434e2e',
+    accentLight: '#8a9c5e',
+    accentBg:    '#0f1209',
+    accentBorder:'#3a4428',
+    tabActive:   '#111a0f',
+    name: 'Planet Zoo 2',
+  },
+};
+
 const TABS = [
-  { id: 'dashboard',     label: '🏠 Dashboard' },
-  { id: 'inventory',     label: '🦁 Inventory' },
-  { id: 'roster',        label: '🐾 Roster' },
-  { id: 'conservation',  label: '🌿 Conservation' },
-  { id: 'habitats',      label: '🏕️ Habitats' },
-  { id: 'bloodlines',    label: '🌳 Bloodlines' },
-  { id: 'peeps',         label: '🎪 Peeps' },
+  { id: 'dashboard',    label: '🏠', full: 'Dashboard' },
+  { id: 'inventory',    label: '🦁', full: 'Inventory' },
+  { id: 'roster',       label: '🐾', full: 'Roster' },
+  { id: 'conservation', label: '🌿', full: 'Conservation' },
+  { id: 'habitats',     label: '🏕️', full: 'Habitats' },
+  { id: 'bloodlines',   label: '🌳', full: 'Bloodlines' },
+  { id: 'peeps',        label: '🎪', full: 'Peeps' },
 ];
 
 export default function App() {
-  const [tab, setTab]             = useState('dashboard');
+  const [tab, setTab]       = useState('dashboard');
   const [pzVersion, setPzVersion] = useState('PZ1');
   const [animals, setAnimals]     = useState(SAMPLE_ANIMALS);
   const [roster, setRoster]       = useState(SAMPLE_ROSTER);
@@ -33,67 +55,83 @@ export default function App() {
   const [peeps, setPeeps]         = useState(SAMPLE_PEEPS);
   const [zooConfig, setZooConfig] = useState({ zooName: '', customStats: '' });
 
-  const speciesList = pzVersion === 'PZ2' ? PZ2_SPECIES : PZ1_SPECIES;
+  const theme = THEMES[pzVersion];
+  const animalDb = pzVersion === 'PZ2' ? PZ2_ANIMALS : PZ1_ANIMALS;
+  const speciesList = useMemo(() => animalDb.map(a => a.name).sort(), [animalDb]);
+
+  const toggleVersion = () => setPzVersion(v => v === 'PZ1' ? 'PZ2' : 'PZ1');
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0d1410', color: '#c8d8a8', fontFamily: "'Trebuchet MS', 'Gill Sans', sans-serif" }}>
-      {/* Header */}
-      <div style={{ background: '#080e07', borderBottom: '1px solid #1e2e18', position: 'sticky', top: 0, zIndex: 50 }}>
-        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 1rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0.65rem 0', flexWrap: 'wrap' }}>
-            {/* Logo */}
-            <div style={{ width: 34, height: 34, background: '#58673f', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>🦒</div>
-            <div style={{ fontWeight: 700, fontSize: 16, color: '#e0ecc0', letterSpacing: '-0.01em', marginRight: 4 }}>
-              {zooConfig.zooName || 'Planet Zoo Tracker'}
-            </div>
+    <div style={{ minHeight: '100vh', background: '#0a0d09', color: '#c8d8a8', fontFamily: "'Trebuchet MS', 'Gill Sans', sans-serif" }}>
+      {/* CSS variable injection for theme */}
+      <style>{`
+        :root {
+          --accent: ${theme.accent};
+          --accent-dim: ${theme.accentDim};
+          --accent-light: ${theme.accentLight};
+          --accent-bg: ${theme.accentBg};
+          --accent-border: ${theme.accentBorder};
+        }
+        input:focus, select:focus, textarea:focus {
+          outline: 2px solid ${theme.accent} !important;
+          outline-offset: 1px;
+        }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0a0d09; }
+        ::-webkit-scrollbar-thumb { background: ${theme.accentBorder}; border-radius: 3px; }
+      `}</style>
 
-            {/* Spacer */}
+      {/* Header */}
+      <div style={{ background: '#060908', borderBottom: `1px solid ${theme.accentBorder}`, position: 'sticky', top: 0, zIndex: 50 }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0.6rem 0', flexWrap: 'wrap' }}>
+
+            {/* Logo + name */}
+            <div style={{ width: 32, height: 32, background: theme.accent, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, flexShrink: 0 }}>🦒</div>
+            <span style={{ fontWeight: 700, fontSize: 15, color: '#e0ecc0', letterSpacing: '-0.01em' }}>
+              {zooConfig.zooName || 'Planet Zoo Tracker'}
+            </span>
+
             <div style={{ flex: 1 }} />
 
-            {/* PZ Version Toggle */}
-            <div style={{ display: 'flex', border: '1px solid #2e4028', borderRadius: 20, overflow: 'hidden', flexShrink: 0 }}>
-              {['PZ1', 'PZ2'].map(v => (
-                <button key={v} onClick={() => setPzVersion(v)} style={{
-                  background: pzVersion === v ? '#58673f' : 'transparent',
-                  border: 'none', color: pzVersion === v ? '#e8f0d0' : '#5a7050',
-                  padding: '5px 16px', cursor: 'pointer', fontSize: 12, fontWeight: 600,
-                  transition: 'all 0.2s'
-                }}>
-                  {pzVersion === v ? '▶ ' : ''}{v === 'PZ1' ? 'Planet Zoo 1' : 'Planet Zoo 2'}
-                </button>
-              ))}
+            {/* Version toggle */}
+            <div onClick={toggleVersion} style={{ display: 'flex', alignItems: 'center', gap: 8, background: theme.accentBg, border: `1px solid ${theme.accentBorder}`, borderRadius: 20, padding: '4px 14px', cursor: 'pointer', userSelect: 'none', transition: 'all 0.2s' }}>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: theme.accentLight }} />
+              <span style={{ color: theme.accentLight, fontSize: 12, fontWeight: 700 }}>▶ {theme.name}</span>
+              <span style={{ color: theme.accentDim, fontSize: 11 }}>switch</span>
             </div>
           </div>
 
-          {/* Tabs */}
-          <div style={{ display: 'flex', gap: 1, overflowX: 'auto', paddingBottom: 0 }}>
+          {/* Tab bar */}
+          <div style={{ display: 'flex', gap: 1, overflowX: 'auto' }}>
             {TABS.map(t => (
               <button key={t.id} onClick={() => setTab(t.id)} style={{
-                background: tab === t.id ? '#111a0f' : 'transparent',
+                background: tab === t.id ? theme.tabActive : 'transparent',
                 border: 'none',
-                borderBottom: tab === t.id ? '2px solid #58673f' : '2px solid transparent',
-                color: tab === t.id ? '#c8d8a8' : '#4a6040',
+                borderBottom: tab === t.id ? `2px solid ${theme.accent}` : '2px solid transparent',
+                color: tab === t.id ? '#d8ecc0' : '#4a6040',
                 padding: '7px 14px', cursor: 'pointer', fontSize: 13,
                 fontWeight: tab === t.id ? 600 : 400,
                 whiteSpace: 'nowrap', borderRadius: '5px 5px 0 0',
-                transition: 'color 0.15s'
+                transition: 'color 0.15s',
               }}>
-                {t.label}
+                <span style={{ marginRight: 5 }}>{t.label}</span>
+                <span>{t.full}</span>
               </button>
             ))}
           </div>
         </div>
       </div>
 
-      {/* Content */}
+      {/* Page content */}
       <div style={{ maxWidth: 1280, margin: '0 auto', padding: '1.25rem 1rem' }}>
-        {tab === 'dashboard'    && <Dashboard animals={animals} roster={roster} habitats={habitats} pzVersion={pzVersion} zooConfig={zooConfig} setZooConfig={setZooConfig} />}
-        {tab === 'inventory'    && <AnimalInventory animals={animals} setAnimals={setAnimals} speciesList={speciesList} />}
-        {tab === 'roster'       && <Roster roster={roster} setRoster={setRoster} pzVersion={pzVersion} speciesList={speciesList} />}
-        {tab === 'conservation' && <ConservationProjects conservation={conservation} setConservation={setConservation} animals={animals} speciesList={speciesList} />}
-        {tab === 'habitats'     && <HabitatPlanner habitats={habitats} setHabitats={setHabitats} pzVersion={pzVersion} speciesList={speciesList} />}
-        {tab === 'bloodlines'   && <BloodlineTracker bloodlines={bloodlines} setBloodlines={setBloodlines} roster={roster} speciesList={speciesList} />}
-        {tab === 'peeps'        && <Peeps peeps={peeps} setPeeps={setPeeps} />}
+        {tab === 'dashboard'    && <Dashboard animals={animals} roster={roster} habitats={habitats} pzVersion={pzVersion} theme={theme} zooConfig={zooConfig} setZooConfig={setZooConfig} />}
+        {tab === 'inventory'    && <AnimalInventory animals={animals} setAnimals={setAnimals} speciesList={speciesList} theme={theme} />}
+        {tab === 'roster'       && <Roster roster={roster} setRoster={setRoster} pzVersion={pzVersion} speciesList={speciesList} theme={theme} animalDb={animalDb} />}
+        {tab === 'conservation' && <ConservationProjects conservation={conservation} setConservation={setConservation} animals={animals} speciesList={speciesList} theme={theme} />}
+        {tab === 'habitats'     && <HabitatPlanner habitats={habitats} setHabitats={setHabitats} pzVersion={pzVersion} speciesList={speciesList} theme={theme} animalDb={animalDb} />}
+        {tab === 'bloodlines'   && <BloodlineTracker bloodlines={bloodlines} setBloodlines={setBloodlines} roster={roster} speciesList={speciesList} theme={theme} />}
+        {tab === 'peeps'        && <Peeps peeps={peeps} setPeeps={setPeeps} theme={theme} />}
       </div>
     </div>
   );

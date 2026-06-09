@@ -16,7 +16,7 @@ function getAppealTier(val) {
 
 function effectiveAppeal(animal) {
   const base = +animal.appeal || 0;
-  return animal.ageStage === 'Juvenile' ? base + JUVENILE_MODIFIER : base;
+  return animal.ageStage === "Juvenile" ? Math.round(base * (1 + JUVENILE_MODIFIER)) : base;
 }
 
 // ─── Social Warning Engine ──────────────────────────────────────────────────
@@ -238,7 +238,7 @@ export default function Roster({ roster, setRoster, pzVersion, speciesList }) {
             <Field label={`Appeal Score (0–${APPEAL_MAX.toLocaleString()})`}>
               <Input type="number" min={0} max={APPEAL_MAX} value={form.appeal} onChange={f('appeal')} />
               {form.ageStage === 'Juvenile' && form.appeal !== '' && (
-                <div style={{ fontSize: 11, color: '#4a8aab', marginTop: 4 }}>Effective: {(+form.appeal + JUVENILE_MODIFIER).toLocaleString()} (+{JUVENILE_MODIFIER} juvenile modifier)</div>
+                <div style={{ fontSize: 11, color: '#4a8aab', marginTop: 4 }}>Effective: {Math.round((+form.appeal || 0) * (1 + JUVENILE_MODIFIER)).toLocaleString()} (+{Math.round((+form.appeal||0) * JUVENILE_MODIFIER)} appeal, 15% modifier)</div>
               )}
             </Field>
           </div>

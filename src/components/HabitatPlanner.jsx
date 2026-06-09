@@ -43,7 +43,7 @@ function TagList({ items }) {
   );
 }
 
-export default function HabitatPlanner({ habitats, setHabitats, pzVersion, speciesList }) {
+export default function HabitatPlanner({ habitats, setHabitats, pzVersion, speciesList, animalDb, theme }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY);
@@ -55,6 +55,21 @@ export default function HabitatPlanner({ habitats, setHabitats, pzVersion, speci
   const f = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
   const fArr = k => v => setForm(p => ({ ...p, [k]: v }));
 
+  const animalMap = Object.fromEntries((animalDb || []).map(a => [a.name, a]));
+  const onSpeciesSelect = species => {
+    const data = animalMap[species];
+    if (data) {
+      setForm(p => ({ ...p, species,
+        baseSpace: data.baseSpace || p.baseSpace,
+        perAdditionalSpace: data.perAdditionalSpace || p.perAdditionalSpace,
+        regions: data.region ? [data.region] : p.regions,
+        biomes: data.biomes?.length ? data.biomes : p.biomes,
+        socialStructure: data.socialStructure || p.socialStructure,
+      }));
+    } else {
+      setForm(p => ({ ...p, species }));
+    }
+  };
   const openAdd = () => { setEditing(null); setForm(EMPTY); setOpen(true); };
   const openEdit = row => { setEditing(row.id); setForm({ ...row, regions: row.regions || [], biomes: row.biomes || [] }); setOpen(true); };
   const save = () => {
@@ -161,7 +176,7 @@ export default function HabitatPlanner({ habitats, setHabitats, pzVersion, speci
           </Field>
           <div style={{ gridColumn: '1/-1' }}>
             <Field label="Primary Species">
-              <select value={form.species} onChange={f('species')} style={{ width: '100%', background: '#111a0f', border: '1px solid #2e4028', borderRadius: 6, padding: '7px 10px', color: form.species ? '#c8d8a8' : '#5a7050', fontSize: 14, boxSizing: 'border-box', outline: 'none' }}>
+              <select value={form.species} onChange={e => onSpeciesSelect(e.target.value)} style={{ width: '100%', background: '#111a0f', border: '1px solid #2e4028', borderRadius: 6, padding: '7px 10px', color: form.species ? '#c8d8a8' : '#5a7050', fontSize: 14, boxSizing: 'border-box', outline: 'none' }}>
                 <option value="">Select species…</option>
                 {speciesList.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
