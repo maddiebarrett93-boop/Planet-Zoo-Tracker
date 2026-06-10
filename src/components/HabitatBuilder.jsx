@@ -302,6 +302,41 @@ export default function HabitatBuilder({ onClose, initialSpecies, onCommit, them
                     style={{ width:'100%', background:'#0d1410', border:'1px solid #2e4028', borderRadius:6, padding:'7px 10px', color:'#c8d8a8', fontSize:14, boxSizing:'border-box', outline:'none' }} />
                 </div>
 
+                {/* Social / group requirements */}
+                <div style={{ background:'#0a1208', border:'1px solid #1e2a18', borderRadius:8, padding:'12px 14px', marginBottom:14 }}>
+                  <div style={{ fontSize:11, color:'#7a9460', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:10 }}>Group Requirements</div>
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:10 }}>
+                    <div>
+                      <div style={{ fontSize:10, color:'#5a7050', marginBottom:3 }}>Group Size</div>
+                      <div style={{ fontSize:18, fontWeight:800, color:'#c8d8a8' }}>{animal.groupSize || '—'}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize:10, color:'#5a7050', marginBottom:3 }}>M:F Ratio</div>
+                      <div style={{ fontSize:18, fontWeight:800, color:'#c8d8a8' }}>{animal.maleToFemale || '—'}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize:10, color:'#5a7050', marginBottom:3 }}>Your Count</div>
+                      <div style={{ fontSize:18, fontWeight:800, color: (() => { const gs = animal.groupSize; if (!gs) return '#c8d8a8'; const parts = String(gs).match(/(\d+)[^\d]+(\d+)/); if (!parts) return '#c8d8a8'; return adultCount >= +parts[1] && adultCount <= +parts[2] ? '#6ab87a' : '#c84040'; })() }}>{adultCount}</div>
+                    </div>
+                  </div>
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, paddingTop:8, borderTop:'1px solid #1a2218' }}>
+                    <div>
+                      <div style={{ fontSize:10, color:'#5a7050', marginBottom:3 }}>♂ Bachelor Range</div>
+                      <div style={{ fontSize:13, color:'#8ab0c8', fontWeight:600 }}>{animal.maleBachelor || '—'}</div>
+                      <div style={{ fontSize:10, color: (() => { const b = animal.maleBachelor; if (!b) return '#3a5030'; const parts = String(b).match(/(\d+)[^\d]+(\d+)/); if (!parts) return '#3a5030'; return males >= +parts[1] && males <= +parts[2] ? '#6ab87a' : '#c87030'; })() }}>
+                        Your: {males} ♂{(() => { const b = animal.maleBachelor; if (!b) return ''; const parts = String(b).match(/(\d+)[^\d]+(\d+)/); if (!parts) return ''; return males >= +parts[1] && males <= +parts[2] ? ' ✓' : ' ⚠'; })()}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize:10, color:'#5a7050', marginBottom:3 }}>♀ Bachelor Range</div>
+                      <div style={{ fontSize:13, color:'#c890b8', fontWeight:600 }}>{animal.femaleBachelor || '—'}</div>
+                      <div style={{ fontSize:10, color: (() => { const b = animal.femaleBachelor; if (!b) return '#3a5030'; const parts = String(b).match(/(\d+)[^\d]+(\d+)/); if (!parts) return '#3a5030'; return females >= +parts[1] && females <= +parts[2] ? '#6ab87a' : '#c87030'; })() }}>
+                        Your: {females} ♀{(() => { const b = animal.femaleBachelor; if (!b) return ''; const parts = String(b).match(/(\d+)[^\d]+(\d+)/); if (!parts) return ''; return females >= +parts[1] && females <= +parts[2] ? ' ✓' : ' ⚠'; })()}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Compatibility alerts */}
                 {compatWarnings.length > 0 && (
                   <div style={{ marginBottom:14 }}>
