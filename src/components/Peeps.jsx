@@ -9,41 +9,49 @@ const EMPTY_FAC = { type: '', zone: '', notes: '' };
 const EMPTY_VEN = { type: '', brand: '', zone: '', proximity: '', quantity: 1, notes: '' };
 const EMPTY_RES = { brand: '', zone: '', proximity: '', seats: '', notes: '' };
 
-function ProximitySelect({ zones, value, onChange, placeholder }) {
-  const [mode, setMode] = useState(value?.startsWith('Near habitat:') ? 'habitat' : 'zone');
-  const [habitatName, setHabitatName] = useState(value?.replace('Near habitat: ', '') || '');
-
-  const update = (m, v) => {
-    if (m === 'zone') onChange(v);
-    else onChange(`Near habitat: ${v}`);
-  };
+function ProximityField({ zones, habitats, value, onChange }) {
+  // Combined: zone dropdown + free-text habitat name, either or both
+  const zone = value?.startsWith('Zone:') ? value.replace('Zone: ','') : '';
+  const near = value && !value.startsWith('Zone:') ? value : '';
+  const [mode, setMode] = useState(zone ? 'zone' : 'near');
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
-        {['zone', 'habitat'].map(m => (
-          <button key={m} onClick={() => setMode(m)}
-            style={{ flex: 1, background: mode === m ? '#2a3e20' : '#111a0f', border: `1px solid ${mode === m ? '#58673f' : '#2e4028'}`, borderRadius: 5, padding: '4px', color: mode === m ? '#c8d8a8' : '#5a7050', fontSize: 12, cursor: 'pointer' }}>
-            {m === 'zone' ? '📍 Zone' : '🦁 Near Habitat'}
+      <div style={{ display:'flex', gap:5, marginBottom:6 }}>
+        {[['near','🦁 Near Habitat'],['zone','📍 Zone']].map(([m,label]) => (
+          <button key={m} onClick={() => { setMode(m); onChange(''); }}
+            style={{ flex:1, background:mode===m?'#2a3e20':'#111a0f', border:`1px solid ${mode===m?'#58673f':'#2e4028'}`, borderRadius:5, padding:'4px', color:mode===m?'#c8d8a8':'#5a7050', fontSize:12, cursor:'pointer' }}>
+            {label}
           </button>
         ))}
       </div>
-      {mode === 'zone' ? (
-        <select value={mode === 'zone' ? value : ''} onChange={e => update('zone', e.target.value)}
-          style={{ width: '100%', background: '#111a0f', border: '1px solid #2e4028', borderRadius: 6, padding: '7px 10px', color: value ? '#c8d8a8' : '#5a7050', fontSize: 14, boxSizing: 'border-box', outline: 'none' }}>
-          <option value="">No zone</option>
-          {zones.map(z => <option key={z} value={z}>{z}</option>)}
-        </select>
+      {mode === 'near' ? (
+        <div>
+          {habitats && habitats.length > 0 ? (
+            <select value={value||''} onChange={e => onChange(e.target.value)}
+              style={{ width:'100%', background:'#111a0f', border:'1px solid #2e4028', borderRadius:6, padding:'7px 10px', color:value?'#c8d8a8':'#5a7050', fontSize:14, boxSizing:'border-box', outline:'none' }}>
+              <option value="">No specific habitat</option>
+              {habitats.map(h => <option key={h.id} value={`Near: ${h.name||h.species}`}>{h.name||h.species} Habitat</option>)}
+              <option value="__custom__">Type a name…</option>
+            </select>
+          ) : (
+            <input value={value||''} onChange={e => onChange(e.target.value)}
+              placeholder="e.g. Tiger Territory, Elephant Habitat…"
+              style={{ width:'100%', background:'#111a0f', border:'1px solid #2e4028', borderRadius:6, padding:'7px 10px', color:'#c8d8a8', fontSize:14, boxSizing:'border-box', outline:'none' }} />
+          )}
+        </div>
       ) : (
-        <input value={habitatName} onChange={e => { setHabitatName(e.target.value); update('habitat', e.target.value); }}
-          placeholder="e.g. Elephant Habitat, Tiger Territory…"
-          style={{ width: '100%', background: '#111a0f', border: '1px solid #2e4028', borderRadius: 6, padding: '7px 10px', color: '#c8d8a8', fontSize: 14, boxSizing: 'border-box', outline: 'none' }} />
+        <select value={value||''} onChange={e => onChange(e.target.value)}
+          style={{ width:'100%', background:'#111a0f', border:'1px solid #2e4028', borderRadius:6, padding:'7px 10px', color:value?'#c8d8a8':'#5a7050', fontSize:14, boxSizing:'border-box', outline:'none' }}>
+          <option value="">No zone</option>
+          {zones.map(z => <option key={z} value={`Zone: ${z}`}>{z}</option>)}
+        </select>
       )}
     </div>
   );
 }
 
-export default function Peeps({ peeps, setPeeps, theme }) {
+export default function Peeps({ peeps, setPeeps, theme, habitats = [] }) {
   const [subtab, setSubtab] = useState('facilities');
   const [facOpen, setFacOpen] = useState(false);
   const [venOpen, setVenOpen] = useState(false);
@@ -214,11 +222,8 @@ export default function Peeps({ peeps, setPeeps, theme }) {
       {/* Modals */}
       <Modal open={facOpen} onClose={() => setFacOpen(false)} title={editFac ? 'Edit Facility' : 'Add Facility'}>
         <Field label="Type"><Select value={facForm.type} onChange={ff('type')} placeholder="Select type…" options={FACILITY_TYPES} /></Field>
-        <Field label="Zone">
-          <select value={facForm.zone} onChange={ff('zone')} style={{ width: '100%', background: '#111a0f', border: '1px solid #2e4028', borderRadius: 6, padding: '7px 10px', color: facForm.zone ? '#c8d8a8' : '#5a7050', fontSize: 14, boxSizing: 'border-box', outline: 'none' }}>
-            <option value="">No zone</option>
-            {zones.map(z => <option key={z} value={z}>{z}</option>)}
-          </select>
+        <Field label="Location">
+          <ProximityField zones={zones} habitats={habitats} value={facForm.proximity||facForm.zone||''} onChange={v => setFacForm(p => ({ ...p, proximity: v }))} />
         </Field>
         <Field label="Notes"><Input value={facForm.notes} onChange={ff('notes')} /></Field>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
@@ -236,7 +241,7 @@ export default function Peeps({ peeps, setPeeps, theme }) {
         )}
         <Field label="Quantity"><Input type="number" min={1} value={venForm.quantity} onChange={e => setVenForm(p => ({ ...p, quantity: e.target.value }))} /></Field>
         <Field label="Location">
-          <ProximitySelect zones={zones} value={venForm.proximity} onChange={v => setVenForm(p => ({ ...p, proximity: v }))} />
+          <ProximityField zones={zones} habitats={habitats} value={venForm.proximity} onChange={v => setVenForm(p => ({ ...p, proximity: v }))} />
         </Field>
         <Field label="Notes"><Input value={venForm.notes} onChange={e => setVenForm(p => ({ ...p, notes: e.target.value }))} /></Field>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
@@ -249,7 +254,7 @@ export default function Peeps({ peeps, setPeeps, theme }) {
         <Field label="Brand"><Select value={resForm.brand} onChange={e => setResForm(p => ({ ...p, brand: e.target.value }))} placeholder="Select brand…" options={RESTAURANT_BRANDS} /></Field>
         <Field label="Seats"><Input type="number" min={0} value={resForm.seats} onChange={e => setResForm(p => ({ ...p, seats: e.target.value }))} placeholder="e.g. 40" /></Field>
         <Field label="Location">
-          <ProximitySelect zones={zones} value={resForm.proximity} onChange={v => setResForm(p => ({ ...p, proximity: v }))} />
+          <ProximityField zones={zones} habitats={habitats} value={resForm.proximity} onChange={v => setResForm(p => ({ ...p, proximity: v }))} />
         </Field>
         <Field label="Notes"><Input value={resForm.notes} onChange={e => setResForm(p => ({ ...p, notes: e.target.value }))} /></Field>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
