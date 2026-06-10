@@ -146,7 +146,12 @@ function AnimalCard({ animal, theme, onOpenBuilder, onBack }) {
           <Row label="Fence Grade"  value={animal.fenceGrade?`Grade ${animal.fenceGrade}`:null} />
           <Row label="Fence Height" value={animal.fenceHeight} unit="m" />
           <Row label="Climbable"    value={animal.climbable?'Yes ⚠':animal.climbable===false?'No':null} />
-          <Row label="Temperature"  value={animal.temperature} unit="°C" />
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'5px 0', borderBottom:'1px solid #111a0f' }}>
+            <span style={{ fontSize:12, color:'#5a7050', flexShrink:0, marginRight:8 }}>Temperature</span>
+            <span style={{ fontSize:13, color:(animal.tempMin||animal.tempMax)?'#c8d8a8':'#2a3a28', fontWeight:500 }}>
+              {(animal.tempMin||animal.tempMax) ? `${animal.tempMin??'?'}–${animal.tempMax??'?'} °F` : '—'}
+            </span>
+          </div>
           <Row label="Humidity"     value={animal.humidity} unit="%" />
           <SpaceRow label="Land Area"     base={animal.baseLand}    add={animal.addLand} />
           <SpaceRow label="Water Area"    base={animal.baseWater}   add={animal.addWater} />
@@ -162,6 +167,15 @@ function AnimalCard({ animal, theme, onOpenBuilder, onBack }) {
             <div><div style={{ fontSize:11, color:'#5a7050', marginBottom:4 }}>♂ Bachelor</div><div style={{ fontSize:13, color:'#8ab0c8' }}>{animal.maleBachelor||'—'}</div></div>
             <div><div style={{ fontSize:11, color:'#5a7050', marginBottom:4 }}>♀ Bachelor</div><div style={{ fontSize:13, color:'#c890b8' }}>{animal.femaleBachelor||'—'}</div></div>
           </div>
+          {(animal.dominance||animal.matingSystem||animal.maturationRules) && (
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginTop:8, paddingTop:8, borderTop:'1px solid #111a0f' }}>
+              {animal.dominance && <div><div style={{ fontSize:10, color:'#5a7050', marginBottom:2 }}>Dominance</div><div style={{ fontSize:12, color:'#c8d8a8' }}>{animal.dominance}</div></div>}
+              {animal.matingSystem && <div><div style={{ fontSize:10, color:'#5a7050', marginBottom:2 }}>Mating System</div><div style={{ fontSize:12, color:'#c8d8a8' }}>{animal.matingSystem}</div></div>}
+              {animal.maturationRules && <div><div style={{ fontSize:10, color:'#5a7050', marginBottom:2 }}>Maturation Rules</div><div style={{ fontSize:12, color:'#c8d8a8' }}>{animal.maturationRules}</div></div>}
+              {animal.relationWithHumans && <div><div style={{ fontSize:10, color:'#5a7050', marginBottom:2 }}>Relation w/ Humans</div><div style={{ fontSize:12, color:'#c8d8a8' }}>{animal.relationWithHumans}</div></div>}
+              {animal.guestInteraction && <div><div style={{ fontSize:10, color:'#5a7050', marginBottom:2 }}>Guest Interaction</div><div style={{ fontSize:12, color:'#c8d8a8' }}>{animal.guestInteraction}</div></div>}
+            </div>
+          )}
         </Sec>
 
         {/* REPRODUCTION */}
@@ -169,6 +183,7 @@ function AnimalCard({ animal, theme, onOpenBuilder, onBack }) {
           {animal.reproductionRate && <div style={{ marginBottom:8 }}><span style={{ color:REPRO_COLOR[animal.reproductionRate]||'#7a9460', fontWeight:700, fontSize:14 }}>{animal.reproductionRate}</span></div>}
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0 12px' }}>
             <Row label="Maturity"        value={animal.maturity}       unit="yrs" />
+            {animal.numOffspring && <div style={{ padding:'5px 0', borderBottom:'1px solid #111a0f', display:'flex', justifyContent:'space-between' }}><span style={{ fontSize:12, color:'#5a7050' }}>Offspring / Birth</span><span style={{ fontSize:13, color:'#c8d8a8', fontWeight:500 }}>{animal.numOffspring}</span></div>}
             <Row label="Sterility"       value={animal.sterility}      unit={typeof animal.sterility==='number'?'yrs':''} />
             <Row label="Incubation"      value={animal.incubation}     unit="mo" />
             <Row label="Interbirth"      value={animal.interbirth}     unit="mo" />
