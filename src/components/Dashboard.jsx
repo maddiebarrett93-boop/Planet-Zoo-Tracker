@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { KpiCard, Input, Field, Btn } from './UI.jsx';
-import { INFRASTRUCTURE_TYPES } from '../data/constants.js';
+
 
 export default function Dashboard({ animals, roster, habitats, pzVersion, zooConfig, setZooConfig }) {
   const [editingStats, setEditingStats] = useState(false);

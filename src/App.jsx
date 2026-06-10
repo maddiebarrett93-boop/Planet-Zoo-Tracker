@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import Dashboard from './components/Dashboard.jsx';
 import AnimalInventory from './components/AnimalInventory.jsx';
 import Roster from './components/Roster.jsx';
@@ -7,78 +7,88 @@ import HabitatPlanner from './components/HabitatPlanner.jsx';
 import BloodlineTracker from './components/BloodlineTracker.jsx';
 import Peeps from './components/Peeps.jsx';
 import Zoopedia from './components/Zoopedia.jsx';
-import {
-  SAMPLE_ANIMALS, SAMPLE_ROSTER, SAMPLE_CONSERVATION,
-  SAMPLE_HABITATS, SAMPLE_BLOODLINES, SAMPLE_PEEPS,
-  PZ1_ANIMALS, PZ2_ANIMALS
-} from './data/constants.js';
+import ZooManager from './components/ZooManager.jsx';
+import HabitatBuilder from './components/HabitatBuilder.jsx';
+import { DEFAULT_ZOO, PZ1_ANIMALS, PZ2_ANIMALS } from './data/constants.js';
 
-// ─── Theme system ───────────────────────────────────────────────────────────
 export const THEMES = {
-  PZ1: {
-    accent:      '#0f9a6d',
-    accentDim:   '#0a6b4c',
-    accentLight: '#1bc98a',
-    accentBg:    '#041a12',
-    accentBorder:'#0d5c3a',
-    tabActive:   '#071a12',
-    name: 'Planet Zoo 1',
-  },
-  PZ2: {
-    accent:      '#616f43',
-    accentDim:   '#434e2e',
-    accentLight: '#8a9c5e',
-    accentBg:    '#0f1209',
-    accentBorder:'#3a4428',
-    tabActive:   '#111a0f',
-    name: 'Planet Zoo 2',
-  },
+  PZ1: { accent: '#0f9a6d', accentDim: '#0a6b4c', accentLight: '#1bc98a', accentBg: '#041a12', accentBorder: '#0d5c3a', tabActive: '#071a12', name: 'Planet Zoo 1' },
+  PZ2: { accent: '#616f43', accentDim: '#434e2e', accentLight: '#8a9c5e', accentBg: '#0f1209', accentBorder: '#3a4428', tabActive: '#111a0f', name: 'Planet Zoo 2' },
 };
 
 const TABS = [
-  { id: 'dashboard',    label: '🏠', full: 'Dashboard' },
-  { id: 'inventory',    label: '🦁', full: 'Inventory' },
-  { id: 'roster',       label: '🐾', full: 'Roster' },
-  { id: 'conservation', label: '🌿', full: 'Conservation' },
-  { id: 'habitats',     label: '🏕️', full: 'Habitats' },
-  { id: 'bloodlines',   label: '🌳', full: 'Bloodlines' },
-  { id: 'peeps',        label: '🎪', full: 'Peeps' },
-  { id: 'zoopedia',     label: '📖', full: 'Zoopedia' },
+  { id: 'dashboard',    label: '🏠', full: 'Dashboard',     scoped: true },
+  { id: 'inventory',    label: '🦁', full: 'Inventory',     scoped: true },
+  { id: 'roster',       label: '🐾', full: 'Roster',        scoped: true },
+  { id: 'conservation', label: '🌿', full: 'Conservation',  scoped: true },
+  { id: 'habitats',     label: '🏕️', full: 'Habitats',      scoped: true },
+  { id: 'bloodlines',   label: '🌳', full: 'Bloodlines',    scoped: true },
+  { id: 'peeps',        label: '🎪', full: 'Peeps',         scoped: true },
+  { id: 'zoopedia',     label: '📖', full: 'Zoopedia',      scoped: false },
+];
+
+const SEED = DEFAULT_ZOO();
+SEED.name = 'My First Zoo';
+SEED.animals = [
+  { id: 1, species: 'African Savannah Elephant', habitat: 'Savanna Flats', males: 1, females: 3, conservationStatus: 'Endangered', notes: '' },
+  { id: 2, species: 'Amur Leopard', habitat: 'Taiga Enclosure', males: 1, females: 1, conservationStatus: 'Critically Endangered', notes: '' },
 ];
 
 export default function App() {
-  const [tab, setTab]       = useState('dashboard');
+  const [zoos, setZoos] = useState([SEED]);
+  const [activeZooId, setActiveZooId] = useState(SEED.id);
+  const [tab, setTab] = useState('dashboard');
   const [pzVersion, setPzVersion] = useState('PZ1');
-  const [animals, setAnimals]     = useState(SAMPLE_ANIMALS);
-  const [roster, setRoster]       = useState(SAMPLE_ROSTER);
-  const [conservation, setConservation] = useState(SAMPLE_CONSERVATION);
-  const [habitats, setHabitats]   = useState(SAMPLE_HABITATS);
-  const [bloodlines, setBloodlines] = useState(SAMPLE_BLOODLINES);
-  const [peeps, setPeeps]         = useState(SAMPLE_PEEPS);
-  const [zoopedia, setZoopedia]   = useState({});
-  const [zooConfig, setZooConfig] = useState({ zooName: '', customStats: '' });
+  const [builderOpen, setBuilderOpen] = useState(false);
+  const [builderSpecies, setBuilderSpecies] = useState('');
 
   const theme = THEMES[pzVersion];
   const animalDb = pzVersion === 'PZ2' ? PZ2_ANIMALS : PZ1_ANIMALS;
   const speciesList = useMemo(() => animalDb.map(a => a.name).sort(), [animalDb]);
 
-  const toggleVersion = () => setPzVersion(v => v === 'PZ1' ? 'PZ2' : 'PZ1');
+  // Active zoo helpers
+  const zoo = zoos.find(z => z.id === activeZooId) || zoos[0];
+  const updateZoo = useCallback((patch) => {
+    setZoos(prev => prev.map(z => z.id === activeZooId ? { ...z, ...(typeof patch === 'function' ? patch(z) : patch) } : z));
+  }, [activeZooId]);
+
+  const setter = (key) => (val) => updateZoo(z => ({ [key]: typeof val === 'function' ? val(z[key]) : val }));
+
+  // Zoo management
+  const addZoo = (name) => {
+    const nz = DEFAULT_ZOO(); nz.name = name;
+    setZoos(prev => [...prev, nz]);
+    setActiveZooId(nz.id);
+  };
+  const renameZoo = (id, name) => setZoos(prev => prev.map(z => z.id === id ? { ...z, name } : z));
+  const deleteZoo = (id) => {
+    setZoos(prev => {
+      const next = prev.filter(z => z.id !== id);
+      if (activeZooId === id) setActiveZooId(next[0]?.id);
+      return next;
+    });
+  };
+
+  // HabitatBuilder commit
+  const handleBuilderCommit = ({ habitat, rosterEntries, hasConservationGoal, species }) => {
+    updateZoo(z => {
+      const newHabitats = [...(z.habitats || []), habitat];
+      const newRoster   = [...(z.roster || []), ...rosterEntries];
+      let newConservation = z.conservation || [];
+      if (hasConservationGoal && !newConservation.find(c => c.species === species)) {
+        newConservation = [...newConservation, { id: Date.now(), species, goalPop: rosterEntries.length, currentPop: rosterEntries.length, releaseGoal: 0, released: 0 }];
+      }
+      return { habitats: newHabitats, roster: newRoster, conservation: newConservation };
+    });
+  };
+
+  const openBuilder = (species = '') => { setBuilderSpecies(species); setBuilderOpen(true); };
 
   return (
     <div style={{ minHeight: '100vh', background: '#0a0d09', color: '#c8d8a8', fontFamily: "'Trebuchet MS', 'Gill Sans', sans-serif" }}>
-      {/* CSS variable injection for theme */}
       <style>{`
-        :root {
-          --accent: ${theme.accent};
-          --accent-dim: ${theme.accentDim};
-          --accent-light: ${theme.accentLight};
-          --accent-bg: ${theme.accentBg};
-          --accent-border: ${theme.accentBorder};
-        }
-        input:focus, select:focus, textarea:focus {
-          outline: 2px solid ${theme.accent} !important;
-          outline-offset: 1px;
-        }
+        :root { --accent: ${theme.accent}; --accent-dim: ${theme.accentDim}; --accent-light: ${theme.accentLight}; --accent-bg: ${theme.accentBg}; --accent-border: ${theme.accentBorder}; }
+        input:focus, select:focus, textarea:focus { outline: 2px solid ${theme.accent} !important; outline-offset: 1px; }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #0a0d09; }
         ::-webkit-scrollbar-thumb { background: ${theme.accentBorder}; border-radius: 3px; }
@@ -87,56 +97,66 @@ export default function App() {
       {/* Header */}
       <div style={{ background: '#060908', borderBottom: `1px solid ${theme.accentBorder}`, position: 'sticky', top: 0, zIndex: 50 }}>
         <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 1rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0.6rem 0', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0.5rem 0', flexWrap: 'wrap' }}>
+            <div style={{ width: 30, height: 30, background: theme.accent, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>🦒</div>
 
-            {/* Logo + name */}
-            <div style={{ width: 32, height: 32, background: theme.accent, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, flexShrink: 0 }}>🦒</div>
-            <span style={{ fontWeight: 700, fontSize: 15, color: '#e0ecc0', letterSpacing: '-0.01em' }}>
-              {zooConfig.zooName || 'Planet Zoo Tracker'}
-            </span>
+            {/* Zoo selector */}
+            <ZooManager zoos={zoos} activeZooId={activeZooId} setActiveZooId={setActiveZooId} addZoo={addZoo} renameZoo={renameZoo} deleteZoo={deleteZoo} />
 
             <div style={{ flex: 1 }} />
 
-            {/* Version toggle */}
-            <div onClick={toggleVersion} style={{ display: 'flex', alignItems: 'center', gap: 8, background: theme.accentBg, border: `1px solid ${theme.accentBorder}`, borderRadius: 20, padding: '4px 14px', cursor: 'pointer', userSelect: 'none', transition: 'all 0.2s' }}>
-              <div style={{ width: 8, height: 8, borderRadius: '50%', background: theme.accentLight }} />
+            {/* Habitat Builder button */}
+            <button onClick={() => openBuilder()} style={{ display: 'flex', alignItems: 'center', gap: 5, background: theme.accentBg, border: `1px solid ${theme.accentBorder}`, borderRadius: 8, padding: '5px 12px', color: theme.accentLight, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+              🏗️ Habitat Builder
+            </button>
+
+            {/* PZ toggle */}
+            <div onClick={() => setPzVersion(v => v === 'PZ1' ? 'PZ2' : 'PZ1')}
+              style={{ display: 'flex', alignItems: 'center', gap: 7, background: theme.accentBg, border: `1px solid ${theme.accentBorder}`, borderRadius: 20, padding: '4px 13px', cursor: 'pointer', userSelect: 'none' }}>
+              <div style={{ width: 7, height: 7, borderRadius: '50%', background: theme.accentLight }} />
               <span style={{ color: theme.accentLight, fontSize: 12, fontWeight: 700 }}>▶ {theme.name}</span>
-              <span style={{ color: theme.accentDim, fontSize: 11 }}>switch</span>
             </div>
           </div>
 
-          {/* Tab bar */}
+          {/* Tabs */}
           <div style={{ display: 'flex', gap: 1, overflowX: 'auto' }}>
             {TABS.map(t => (
               <button key={t.id} onClick={() => setTab(t.id)} style={{
-                background: tab === t.id ? theme.tabActive : 'transparent',
-                border: 'none',
+                background: tab === t.id ? theme.tabActive : 'transparent', border: 'none',
                 borderBottom: tab === t.id ? `2px solid ${theme.accent}` : '2px solid transparent',
                 color: tab === t.id ? '#d8ecc0' : '#4a6040',
-                padding: '7px 14px', cursor: 'pointer', fontSize: 13,
-                fontWeight: tab === t.id ? 600 : 400,
-                whiteSpace: 'nowrap', borderRadius: '5px 5px 0 0',
-                transition: 'color 0.15s',
+                padding: '7px 13px', cursor: 'pointer', fontSize: 13, fontWeight: tab === t.id ? 600 : 400,
+                whiteSpace: 'nowrap', borderRadius: '5px 5px 0 0', transition: 'color 0.15s',
               }}>
-                <span style={{ marginRight: 5 }}>{t.label}</span>
-                <span>{t.full}</span>
+                <span style={{ marginRight: 4 }}>{t.label}</span>{t.full}
+                {!t.scoped && <span style={{ fontSize: 9, color: '#3a5030', marginLeft: 4, verticalAlign: 'middle' }}>GLOBAL</span>}
               </button>
             ))}
           </div>
         </div>
       </div>
 
-      {/* Page content */}
+      {/* Content */}
       <div style={{ maxWidth: 1280, margin: '0 auto', padding: '1.25rem 1rem' }}>
-        {tab === 'dashboard'    && <Dashboard animals={animals} roster={roster} habitats={habitats} pzVersion={pzVersion} theme={theme} zooConfig={zooConfig} setZooConfig={setZooConfig} />}
-        {tab === 'inventory'    && <AnimalInventory animals={animals} setAnimals={setAnimals} speciesList={speciesList} theme={theme} />}
-        {tab === 'roster'       && <Roster roster={roster} setRoster={setRoster} pzVersion={pzVersion} speciesList={speciesList} theme={theme} animalDb={animalDb} />}
-        {tab === 'conservation' && <ConservationProjects conservation={conservation} setConservation={setConservation} animals={animals} speciesList={speciesList} theme={theme} />}
-        {tab === 'habitats'     && <HabitatPlanner habitats={habitats} setHabitats={setHabitats} pzVersion={pzVersion} speciesList={speciesList} theme={theme} animalDb={animalDb} />}
-        {tab === 'bloodlines'   && <BloodlineTracker bloodlines={bloodlines} setBloodlines={setBloodlines} roster={roster} speciesList={speciesList} theme={theme} />}
-        {tab === 'peeps'        && <Peeps peeps={peeps} setPeeps={setPeeps} theme={theme} />}
-        {tab === 'zoopedia'     && <Zoopedia theme={theme} />}
+        {tab === 'dashboard'    && <Dashboard animals={zoo.animals||[]} roster={zoo.roster||[]} habitats={zoo.habitats||[]} pzVersion={pzVersion} theme={theme} zooConfig={{ zooName: zoo.name, customStats: zoo.customStats }} setZooConfig={cfg => updateZoo({ name: cfg.zooName, customStats: cfg.customStats })} onOpenBuilder={openBuilder} />}
+        {tab === 'inventory'    && <AnimalInventory animals={zoo.animals||[]} setAnimals={setter('animals')} speciesList={speciesList} theme={theme} />}
+        {tab === 'roster'       && <Roster roster={zoo.roster||[]} setRoster={setter('roster')} pzVersion={pzVersion} speciesList={speciesList} theme={theme} animalDb={animalDb} />}
+        {tab === 'conservation' && <ConservationProjects conservation={zoo.conservation||[]} setConservation={setter('conservation')} animals={zoo.animals||[]} speciesList={speciesList} theme={theme} />}
+        {tab === 'habitats'     && <HabitatPlanner habitats={zoo.habitats||[]} setHabitats={setter('habitats')} pzVersion={pzVersion} speciesList={speciesList} theme={theme} animalDb={animalDb} onOpenBuilder={openBuilder} />}
+        {tab === 'bloodlines'   && <BloodlineTracker bloodlines={zoo.bloodlines||[]} setBloodlines={setter('bloodlines')} roster={zoo.roster||[]} speciesList={speciesList} theme={theme} />}
+        {tab === 'peeps'        && <Peeps peeps={zoo.peeps||{zones:[],facilities:[],vendors:[],restaurants:[]}} setPeeps={setter('peeps')} theme={theme} />}
+        {tab === 'zoopedia'     && <Zoopedia theme={theme} onOpenBuilder={openBuilder} />}
       </div>
+
+      {/* Habitat Builder modal */}
+      {builderOpen && (
+        <HabitatBuilder
+          onClose={() => setBuilderOpen(false)}
+          initialSpecies={builderSpecies}
+          onCommit={handleBuilderCommit}
+          theme={theme}
+        />
+      )}
     </div>
   );
 }

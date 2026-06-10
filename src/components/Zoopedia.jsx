@@ -237,14 +237,24 @@ function AnimalCard({ animal, theme }) {
 const ALL_BIOMES = [...new Set(PZ1_ZOOPEDIA.flatMap(a => a.biomes ? a.biomes.split(',').map(b => b.trim()) : []).filter(Boolean))].sort();
 const ALL_CONTINENTS = [...new Set(PZ1_ZOOPEDIA.flatMap(a => a.continents ? a.continents.split(',').map(c => c.trim()) : []).filter(Boolean))].sort();
 const ALL_CLASSES = [...new Set(PZ1_ZOOPEDIA.map(a => a.class_).filter(Boolean))].sort();
+const ALL_ORDERS = [...new Set(PZ1_ZOOPEDIA.map(a => a.order).filter(Boolean))].sort();
+const APPEAL_TIER_FILTERS = [
+  { label: 'Any Appeal', min: 0, max: Infinity },
+  { label: 'Normal (0–1249)', min: 0, max: 1249 },
+  { label: 'Bronze (1250–3124)', min: 1250, max: 3124 },
+  { label: 'Silver (3125–5624)', min: 3125, max: 5624 },
+  { label: 'Gold (5625+)', min: 5625, max: Infinity },
+];
 
-export default function Zoopedia({ theme }) {
+export default function Zoopedia({ theme, onOpenBuilder }) {
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterType, setFilterType] = useState('');
   const [filterContinent, setFilterContinent] = useState('');
   const [filterBiome, setFilterBiome] = useState('');
   const [filterClass, setFilterClass] = useState('');
+  const [filterOrder, setFilterOrder] = useState('');
+  const [filterAppeal, setFilterAppeal] = useState(0);
   const [selected, setSelected] = useState(null);
 
   const filtered = useMemo(() => {
@@ -260,19 +270,25 @@ export default function Zoopedia({ theme }) {
       if (filterContinent && !(a.continents || '').includes(filterContinent)) return false;
       if (filterBiome && !(a.biomes || '').includes(filterBiome)) return false;
       if (filterClass && a.class_ !== filterClass) return false;
+      if (filterOrder && a.order !== filterOrder) return false;
+      if (filterAppeal > 0) {
+        const tier = APPEAL_TIER_FILTERS[filterAppeal];
+        const ap = Number(a.appeal) || 0;
+        if (ap < tier.min || ap > tier.max) return false;
+      }
       return true;
     });
-  }, [search, filterStatus, filterType, filterContinent, filterBiome, filterClass]);
+  }, [search, filterStatus, filterType, filterContinent, filterBiome, filterClass, filterOrder, filterAppeal]);
 
   const selectedAnimal = selected ? PZ1_ZOOPEDIA_MAP[selected] : null;
 
   const selectStyle = { background: '#111a0f', border: '1px solid #2e4028', borderRadius: 6, padding: '6px 9px', color: '#5a7050', fontSize: 12, outline: 'none', width: '100%' };
 
   return (
-    <div style={{ display: 'flex', gap: 14, height: 'calc(100vh - 120px)', minHeight: 500 }}>
+    <div style={{ display: 'flex', gap: 14, height: 'calc(100vh - 120px)', minHeight: 500, flexWrap: 'wrap' }}>
 
       {/* ── Left panel: list ── */}
-      <div style={{ width: 250, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 7 }}>
+      <div style={{ width: 250, minWidth: 200, flexShrink: 1, display: 'flex', flexDirection: 'column', gap: 7 }}>
 
         {/* Search */}
         <div style={{ position: 'relative' }}>
@@ -304,6 +320,13 @@ export default function Zoopedia({ theme }) {
         </select>
 
         {/* Count */}
+        <select value={filterOrder} onChange={e => setFilterOrder(e.target.value)} style={selectStyle}>
+          <option value="">All orders</option>
+          {ALL_ORDERS.map(o => <option key={o} value={o}>{o}</option>)}
+        </select>
+        <select value={filterAppeal} onChange={e => setFilterAppeal(+e.target.value)} style={selectStyle}>
+          {APPEAL_TIER_FILTERS.map((t, i) => <option key={i} value={i}>{t.label}</option>)}
+        </select>
         <div style={{ fontSize: 11, color: '#3a5030', textAlign: 'center' }}>{filtered.length} of {PZ1_ZOOPEDIA.length} animals</div>
 
         {/* Animal list */}
