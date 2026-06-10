@@ -8,8 +8,13 @@ export default function Dashboard({ animals, roster, habitats, pzVersion, zooCon
 
   const totalAnimals = animals.reduce((s, a) => s + (+a.males || 0) + (+a.females || 0), 0);
   const speciesCount = animals.length;
-  const critEndangered = animals.filter(a => a.conservationStatus === 'Critically Endangered').length;
-  const endangered = animals.filter(a => a.conservationStatus === 'Endangered').length;
+  const statusCounts = {
+    'Critically Endangered': { count: animals.filter(a => a.conservationStatus === 'Critically Endangered').length, accent: '#c84040' },
+    'Endangered':            { count: animals.filter(a => a.conservationStatus === 'Endangered').length,            accent: '#c87030' },
+    'Vulnerable':            { count: animals.filter(a => a.conservationStatus === 'Vulnerable').length,            accent: '#c8a030' },
+    'Near Threatened':       { count: animals.filter(a => a.conservationStatus === 'Near Threatened').length,       accent: '#9ab84a' },
+    'Least Concern':         { count: animals.filter(a => a.conservationStatus === 'Least Concern').length,         accent: '#6ab87a' },
+  };
 
   const habitatCount = habitats.filter(h => h.habitatType === 'Habitats').length;
   const exhibitCount = habitats.filter(h => h.habitatType === 'Exhibits').length;
@@ -58,8 +63,11 @@ export default function Dashboard({ animals, roster, habitats, pzVersion, zooCon
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10, marginBottom: '1.25rem' }}>
         <KpiCard label="Species" value={speciesCount} sub="in inventory" />
         <KpiCard label="Total Animals" value={totalAnimals} />
-        <KpiCard label="Critically Endangered" value={critEndangered} accent={critEndangered > 0 ? ACCENT_RED : undefined} sub="species" />
-        <KpiCard label="Endangered" value={endangered} accent={endangered > 0 ? ACCENT_ORANGE : undefined} sub="species" />
+        {Object.entries(statusCounts).map(([label, { count, accent: sc }]) => (
+          <KpiCard key={label} label={label} value={count}
+            accent={count > 0 ? sc : undefined}
+            sub={count > 0 ? 'species' : 'none'} />
+        ))}
       </div>
 
       {/* Infrastructure */}

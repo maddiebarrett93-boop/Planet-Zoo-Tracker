@@ -10,7 +10,7 @@ import Zoopedia from './components/Zoopedia.jsx';
 import ZooManager from './components/ZooManager.jsx';
 import HabitatBuilder from './components/HabitatBuilder.jsx';
 import { DEFAULT_ZOO, PZ1_ANIMALS, PZ2_ANIMALS } from './data/constants.js';
-import { readTab, writeTab, readCache, readZoos, writeZoos, debouncedWrite } from './lib/sheetsSync.js';
+import { readTab, writeTab, readCache, readCacheAny, readZoos, writeZoos, debouncedWrite } from './lib/sheetsSync.js';
 
 export const THEMES = {
   PZ1: { accent:'#0f9a6d', accentDim:'#0a6b4c', accentLight:'#1bc98a', accentBg:'#041a12', accentBorder:'#0d5c3a', tabActive:'#071a12', name:'Planet Zoo 1' },
@@ -74,8 +74,8 @@ export default function App() {
     const sheetTab = TAB_SHEET[tabId];
     if (!sheetTab || !activeZooId) return;
 
-    // Show cached data immediately
-    const cached = readCache(sheetTab, activeZooId);
+    // Show cached data immediately (stale-ok for instant display)
+    const cached = readCacheAny(sheetTab, activeZooId);
     if (cached) {
       applySheetData(sheetTab, cached);
     }
@@ -274,7 +274,25 @@ export default function App() {
         {tab==='roster'       && <Roster roster={zoo.roster||[]} setRoster={makeSetter('roster','Roster')} pzVersion={pzVersion} speciesList={speciesList} theme={theme} animalDb={animalDb} />}
         {tab==='conservation' && <ConservationProjects conservation={zoo.conservation||[]} setConservation={makeSetter('conservation','Conservation')} animals={zoo.animals||[]} speciesList={speciesList} theme={theme} />}
         {tab==='habitats'     && <HabitatPlanner habitats={zoo.habitats||[]} setHabitats={makeSetter('habitats','Habitats')} pzVersion={pzVersion} speciesList={speciesList} theme={theme} animalDb={animalDb} onOpenBuilder={openBuilder} />}
-        {tab==='bloodlines'   && <BloodlineTracker bloodlines={zoo.bloodlines||[]} setBloodlines={makeSetter('bloodlines','Bloodlines')} roster={zoo.roster||[]} speciesList={speciesList} theme={theme} />}
+        {tab==='bloodlines'   && <BloodlineTracker
+          bloodlines={zoo.bloodlines||[]}
+          setBloodlines={(val) => {
+            // When a bloodline record is added, auto-seed a Roster entry
+            const newBloodlines = typeof val === 'function' ? val(zoo.bloodlines||[]) : val;
+            const existing = zoo.bloodlines || [];
+            const added = newBloodlines.filter(b => !existing.find(e => e.id === b.id));
+            if (added.length > 0) {
+              const newRoster = [...(zoo.roster||[])];
+              added.forEach(b => {
+                if (!newRoster.find(r => r.name === b.name && r.species === b.species)) {
+                  newRoster.push({ id: Date.now() + Math.random(), species: b.species, name: b.name, sex: '', ageStage: 'Juvenile', fertility: '', immunity: '', size: '', longevity: '', appeal: '', mate: b.father && b.mother ? '' : '', offspring: '', disposition: 'Keep', isAlpha: false, isBonded: false, isOutsider: false, socialStructure: '' });
+                }
+              });
+              makeSetter('roster','Roster')(newRoster);
+            }
+            makeSetter('bloodlines','Bloodlines')(val);
+          }}
+          roster={zoo.roster||[]} speciesList={speciesList} theme={theme} />}
         {tab==='peeps'        && <Peeps peeps={zoo.peeps||{zones:[],facilities:[],vendors:[],restaurants:[]}} setPeeps={makeSetter('peeps','Peeps')} theme={theme} habitats={zoo.habitats||[]} />}
       </div>
 

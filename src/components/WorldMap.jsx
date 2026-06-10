@@ -15,15 +15,19 @@ PZ1_ZOOPEDIA.forEach(a => {
 
 // Build per-country animal list using regions field
 function getAnimalsForCountry(countryName) {
-  return PZ1_ZOOPEDIA.filter(a =>
-    a.regions && a.regions.toLowerCase().includes(countryName.toLowerCase())
-  );
+  const q = countryName.toLowerCase();
+  return PZ1_ZOOPEDIA.filter(a => {
+    if (!a.regions) return false;
+    // Split by comma and check each region segment
+    return a.regions.split(',').map(s => s.trim().toLowerCase()).some(r => r.includes(q) || q.includes(r));
+  });
 }
 
 function getAnimalsForRegion(regionName) {
-  return PZ1_ZOOPEDIA.filter(a =>
-    a.continents && a.continents.split(',').map(c => c.trim()).includes(regionName)
-  );
+  return PZ1_ZOOPEDIA.filter(a => {
+    if (!a.continents) return false;
+    return a.continents.split(',').map(c => c.trim()).includes(regionName);
+  });
 }
 
 const IUCN_COLOR = {
@@ -93,7 +97,7 @@ export default function WorldMap({ theme, onOpenBuilder, onSelectAnimal }) {
   const regions = Object.keys(REGION_COLORS).filter(r => r !== 'Unknown');
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', gap:0, height:'calc(100vh - 120px)', minHeight:500 }}>
+    <div style={{ display:'flex', flexDirection:'column', gap:0, height:'100%', flex:1, minHeight:0 }}>
 
       {/* Region legend / filter pills */}
       <div style={{ display:'flex', gap:6, flexWrap:'wrap', padding:'10px 0', borderBottom:'1px solid #1e2a18', flexShrink:0 }}>
@@ -250,7 +254,7 @@ export default function WorldMap({ theme, onOpenBuilder, onSelectAnimal }) {
                               style={{ width:'100%', height:'100%', objectFit:'cover' }}
                               onError={e => { e.target.style.display='none'; }}
                             />
-                          : (a.type === 'Exhibit' ? '🦎' : a.type === 'Aquatic' ? '🐠' : '🦁')
+                          : <span style={{fontSize:'1.2rem'}}>{a.type === 'Exhibit' ? '🦎' : a.type === 'Aquatic' ? '🐠' : a.type === 'Aviary' ? '🦜' : '🦁'}</span>
                         }
                       </div>
                       <div style={{ flex:1, minWidth:0 }}>

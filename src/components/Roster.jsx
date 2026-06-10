@@ -142,6 +142,7 @@ export default function Roster({ roster, setRoster, pzVersion, speciesList }) {
   const [search, setSearch] = useState('');
   const [filterSpecies, setFilterSpecies] = useState('');
   const [filterDisp, setFilterDisp] = useState('');
+  const [showArchive, setShowArchive] = useState(false);
   const [filterStructure, setFilterStructure] = useState('');
 
   const f = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
@@ -206,6 +207,10 @@ export default function Roster({ roster, setRoster, pzVersion, speciesList }) {
           {DISPOSITION.map(d => <option key={d} value={d}>{d}</option>)}
         </select>
         <Btn onClick={openAdd}><Plus size={13} /> Add Animal</Btn>
+        <button onClick={() => setShowArchive(v => !v)}
+          style={{ background: showArchive ? '#2e2a10' : 'transparent', border: `1px solid ${showArchive ? '#c8a030' : '#2e4028'}`, borderRadius:6, padding:'6px 12px', color: showArchive ? '#c8a030' : '#5a7050', fontSize:12, cursor:'pointer', whiteSpace:'nowrap' }}>
+          {showArchive ? '📦 Archive' : '📦'} {archived.length > 0 ? `(${archived.length})` : ''}
+        </button>
       </div>
 
       {/* Roster list */}

@@ -4,6 +4,8 @@ import { PZ1_ZOOPEDIA_MAP, PZ1_ZOOPEDIA } from '../data/pz1_zoopedia.js';
 import { AnimalImage } from './AnimalImage.jsx';
 
 function calcRequired(base, addPer, count) {
+  // Coerce strings from spreadsheet data to numbers
+  base = +base || 0; addPer = +addPer || 0; count = +count || 0;
   if (!base) return 0;
   return base + Math.max(0, (count - 1)) * (addPer || 0);
 }

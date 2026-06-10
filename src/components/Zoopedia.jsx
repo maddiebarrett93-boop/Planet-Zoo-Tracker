@@ -22,6 +22,7 @@ const ALL_BIOMES     = [...new Set(PZ1_ZOOPEDIA.flatMap(a => a.biomes ? a.biomes
 const ALL_CONTINENTS = [...new Set(PZ1_ZOOPEDIA.flatMap(a => a.continents ? a.continents.split(',').map(c=>c.trim()) : []).filter(Boolean))].sort();
 const ALL_CLASSES    = [...new Set(PZ1_ZOOPEDIA.map(a=>a.class_).filter(Boolean))].sort();
 const ALL_ORDERS     = [...new Set(PZ1_ZOOPEDIA.map(a=>a.order).filter(Boolean))].sort();
+const ALL_FAMILIES   = [...new Set(PZ1_ZOOPEDIA.map(a=>a.family).filter(Boolean))].sort();
 const APPEAL_TIERS   = [
   { label:'Any Appeal', min:0, max:Infinity },
   { label:'Normal (0–1,249)', min:0, max:1249 },
@@ -260,7 +261,7 @@ export default function Zoopedia({ theme, onOpenBuilder, isModal, onClose }) {
   const [filterContinent, setFilterContinent] = useState('');
   const [filterBiome, setFilterBiome]       = useState('');
   const [filterClass, setFilterClass]       = useState('');
-  const [filterOrder, setFilterOrder]       = useState('');
+  const [filterFamily, setFilterFamily]     = useState('');
   const [filterAppeal, setFilterAppeal]     = useState(0);
   const [selected, setSelected]             = useState(null);
   const [view, setView]                     = useState('list'); // 'list' | 'map'
@@ -279,15 +280,15 @@ export default function Zoopedia({ theme, onOpenBuilder, isModal, onClose }) {
       if (filterContinent && !(a.continents||'').includes(filterContinent)) return false;
       if (filterBiome && !(a.biomes||'').includes(filterBiome)) return false;
       if (filterClass && a.class_!==filterClass) return false;
-      if (filterOrder && a.order!==filterOrder) return false;
+      if (filterFamily && a.family!==filterFamily) return false;
       if (filterAppeal>0) { const t=APPEAL_TIERS[filterAppeal]; const ap=Number(a.appeal)||0; if(ap<t.min||ap>t.max) return false; }
       return true;
     });
-  }, [search,filterStatus,filterType,filterContinent,filterBiome,filterClass,filterOrder,filterAppeal]);
+  }, [search,filterStatus,filterType,filterContinent,filterBiome,filterClass,filterFamily,filterAppeal]);
 
   const selectedAnimal = selected ? PZ1_ZOOPEDIA_MAP[selected] : null;
 
-  const filterSetters = { setSearch, setFilterStatus, setFilterType, setFilterContinent, setFilterBiome, setFilterClass, setFilterOrder, setFilterAppeal };
+  const filterSetters = { setSearch, setFilterStatus, setFilterType, setFilterContinent, setFilterBiome, setFilterClass, setFilterFamily, setFilterAppeal };
 
   const handleSelect = (name) => { setSelected(name); setMobileView('detail'); };
   const handleBack   = () => { setMobileView('list'); setSelected(null); };
@@ -361,7 +362,7 @@ export default function Zoopedia({ theme, onOpenBuilder, isModal, onClose }) {
                 ['All continents', filterContinent, setFilterContinent, ALL_CONTINENTS],
                 ['All biomes', filterBiome, setFilterBiome, ALL_BIOMES],
                 ['All classes', filterClass, setFilterClass, ALL_CLASSES],
-                ['All orders', filterOrder, setFilterOrder, ALL_ORDERS],
+                ['All families', filterFamily, setFilterFamily, ALL_FAMILIES],
               ].map(([placeholder, val, setter, opts]) => (
                 <select key={placeholder} value={val} onChange={e=>setter(e.target.value)}
                   style={{ width:'100%', background:'#111a0f', border:'1px solid #2e4028', borderRadius:5, padding:'5px 8px', color:val?'#c8d8a8':'#5a7050', fontSize:12, outline:'none', marginBottom:5 }}>
@@ -380,6 +381,10 @@ export default function Zoopedia({ theme, onOpenBuilder, isModal, onClose }) {
             </div>
           )}
 
+          {/* Taxonomy widget */}
+          <div style={{ padding:'8px 8px 0' }}>
+            <TaxonomyWidget onFilterFamily={setFilterFamily} currentFamily={filterFamily} />
+          </div>
           {/* Animal list */}
           <div style={{ flex:1, overflowY:'auto', padding:'4px' }}>
             {filtered.map(a => {
@@ -401,7 +406,7 @@ export default function Zoopedia({ theme, onOpenBuilder, isModal, onClose }) {
         </div>
 
         {/* ── RIGHT: animal card ── */}
-        <div style={{ flex:1, overflowY:'auto', padding:'0' }} className="zoo-right-panel">
+        <div style={{ flex:1, overflowY:'auto', overflowX:'hidden', WebkitOverflowScrolling:'touch', padding:'0', minHeight:0 }} className="zoo-right-panel">
           {selectedAnimal
             ? <AnimalCard animal={selectedAnimal} theme={theme} onOpenBuilder={onOpenBuilder} onBack={mobileView==='detail' ? handleBack : null} />
             : (
@@ -416,6 +421,85 @@ export default function Zoopedia({ theme, onOpenBuilder, isModal, onClose }) {
       </div>}
 
       </div>
+    </div>
+  );
+}
+
+// ── Taxonomy Education Widget ────────────────────────────────────────────────
+const FAMILY_GLOSSARY = {
+  'Felidae':      { label:'Cats', desc:'Obligate carnivores with retractile claws. Includes lions, tigers, leopards, cheetahs, and domestic cats.' },
+  'Canidae':      { label:'Dogs & Wolves', desc:'Social hunters with non-retractile claws. Includes wolves, foxes, jackals, and wild dogs.' },
+  'Ursidae':      { label:'Bears', desc:'Large omnivores with plantigrade feet. Includes grizzly, polar, panda, and sun bears.' },
+  'Elephantidae': { label:'Elephants', desc:'Largest land animals. Highly intelligent with complex social structures and extended lifespans.' },
+  'Rhinocerotidae':{ label:'Rhinoceroses', desc:'Large herbivores with one or two keratin horns. All species are threatened or endangered.' },
+  'Giraffidae':   { label:'Giraffes & Okapi', desc:'Tallest living terrestrial animals with long necks and ossicones instead of true horns.' },
+  'Bovidae':      { label:'Bovids', desc:'Hooved hollow-horned ruminants: cattle, antelope, buffalo, bison, goats, and sheep.' },
+  'Equidae':      { label:'Horses & Zebras', desc:'Odd-toed ungulates built for speed. Includes horses, zebras, donkeys, and asses.' },
+  'Hippopotamidae':{ label:'Hippos', desc:'Semiaquatic megaherbivores. Despite size, are closely related to cetaceans (whales).' },
+  'Hominidae':    { label:'Great Apes', desc:'Includes orangutans, gorillas, chimpanzees, bonobos, and humans — sharing 98%+ DNA.' },
+  'Cercopithecidae':{ label:'Old World Monkeys', desc:'Primates with downward-pointing nostrils. Includes baboons, macaques, and mandrills.' },
+  'Procyonidae':  { label:'Raccoons & Relatives', desc:'Omnivorous, mostly arboreal mammals including raccoons, coatis, and kinkajous.' },
+  'Mustelidae':   { label:'Weasels & Otters', desc:'Slender-bodied carnivores: otters, badgers, wolverines, ferrets, and weasels.' },
+  'Hyaenidae':    { label:'Hyenas', desc:'Dog-like carnivores that are actually closer to cats than dogs. Known for distinctive calls.' },
+  'Crocodylidae': { label:'Crocodilians', desc:'Ancient reptilian apex predators, largely unchanged for 200 million years.' },
+  'Spheniscidae': { label:'Penguins', desc:'Flightless seabirds of the Southern Hemisphere, perfectly adapted for aquatic life.' },
+  'Cheloniidae':  { label:'Sea Turtles', desc:'Ancient marine reptiles that return to the same beaches to nest for their entire lives.' },
+  'Tapiridae':    { label:'Tapirs', desc:'Primitive-looking herbivores with a short prehensile proboscis, related to horses and rhinos.' },
+  'Camelidae':    { label:'Camels & Relatives', desc:'Even-toed ungulates adapted to arid environments, including camels, llamas, and alpacas.' },
+  'Ailuropodidae':{ label:'Giant Panda', desc:'Bamboo-specialized bear native to China. One of the most recognized conservation symbols.' },
+};
+
+export function TaxonomyWidget({ onFilterFamily, currentFamily }) {
+  const [expanded, setExpanded] = useState(false);
+  const [hoveredFamily, setHoveredFamily] = useState(null);
+
+  const families = Object.entries(FAMILY_GLOSSARY);
+
+  return (
+    <div style={{ background:'#0a120a', border:'1px solid #1e2a18', borderRadius:10, overflow:'hidden', marginBottom:8 }}>
+      <button onClick={() => setExpanded(v=>!v)}
+        style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 14px', background:'transparent', border:'none', cursor:'pointer', textAlign:'left' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          <span style={{ fontSize:16 }}>🎓</span>
+          <span style={{ fontSize:13, fontWeight:600, color:'#c8d8a8' }}>Taxonomy Guide</span>
+          <span style={{ fontSize:11, color:'#5a7050' }}>Click a family to filter</span>
+        </div>
+        <span style={{ fontSize:14, color:'#5a7050' }}>{expanded ? '▲' : '▼'}</span>
+      </button>
+
+      {expanded && (
+        <div style={{ padding:'0 10px 10px', display:'flex', flexWrap:'wrap', gap:6 }}>
+          {families.map(([family, info]) => {
+            const isActive = currentFamily === family;
+            const isHovered = hoveredFamily === family;
+            return (
+              <div key={family} style={{ position:'relative' }}>
+                <button
+                  onClick={() => onFilterFamily(isActive ? '' : family)}
+                  onMouseEnter={() => setHoveredFamily(family)}
+                  onMouseLeave={() => setHoveredFamily(null)}
+                  style={{ background: isActive ? '#1a2e14' : '#111a0f', border:`1px solid ${isActive ? '#58673f' : '#2e4028'}`, borderRadius:6, padding:'5px 10px', cursor:'pointer', textAlign:'left' }}>
+                  <div style={{ fontSize:12, color: isActive ? '#c8d8a8' : '#9ab880', fontWeight: isActive ? 700 : 400, fontStyle:'italic' }}>{family}</div>
+                  <div style={{ fontSize:10, color:'#5a7050' }}>{info.label}</div>
+                </button>
+                {isHovered && (
+                  <div style={{ position:'absolute', bottom:'100%', left:0, zIndex:100, background:'#0d1a0d', border:'1px solid #2e4028', borderRadius:8, padding:'10px 12px', width:240, marginBottom:6, pointerEvents:'none', boxShadow:'0 4px 16px rgba(0,0,0,0.5)' }}>
+                    <div style={{ fontSize:12, fontWeight:700, color:'#c8d8a8', fontStyle:'italic', marginBottom:4 }}>{family}</div>
+                    <div style={{ fontSize:11, color:'#7a9460', fontWeight:600, marginBottom:4 }}>{info.label}</div>
+                    <div style={{ fontSize:11, color:'#5a7050', lineHeight:1.5 }}>{info.desc}</div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {currentFamily && (
+            <button onClick={() => onFilterFamily('')}
+              style={{ background:'#1e0808', border:'1px solid #5a2828', borderRadius:6, padding:'5px 10px', cursor:'pointer', color:'#c86060', fontSize:11 }}>
+              ✕ Clear family filter
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
