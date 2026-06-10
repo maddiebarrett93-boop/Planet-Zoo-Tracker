@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Search, ArrowLeft, SlidersHorizontal, X } from 'lucide-react';
 import { PZ1_ZOOPEDIA, PZ1_ZOOPEDIA_MAP } from '../data/pz1_zoopedia.js';
 import { AnimalImage } from './AnimalImage.jsx';
+import WorldMap from './WorldMap.jsx';
 
 const IUCN_COLOR = {
   'Least Concern':'#6ab87a','Near Threatened':'#9ab84a','Vulnerable':'#c8a030',
@@ -262,6 +263,7 @@ export default function Zoopedia({ theme, onOpenBuilder, isModal, onClose }) {
   const [filterOrder, setFilterOrder]       = useState('');
   const [filterAppeal, setFilterAppeal]     = useState(0);
   const [selected, setSelected]             = useState(null);
+  const [view, setView]                     = useState('list'); // 'list' | 'map'
   const [showFilters, setShowFilters]       = useState(false);
   // Mobile view: 'list' | 'detail'
   const [mobileView, setMobileView]         = useState('list');
@@ -301,12 +303,28 @@ export default function Zoopedia({ theme, onOpenBuilder, isModal, onClose }) {
       {isModal && (
         <div style={{ background:accent, padding:'12px 16px', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
           <div style={{ fontWeight:700, fontSize:16, color:'#fff' }}>📖 Zoopedia</div>
+          <div style={{ display:'flex', gap:0, border:'1px solid rgba(255,255,255,0.2)', borderRadius:6, overflow:'hidden' }}>
+            {[['list','📋 Browse'],['map','🌍 Map']].map(([v,label]) => (
+              <button key={v} onClick={() => setView(v)}
+                style={{ background:view===v?'rgba(255,255,255,0.2)':'transparent', border:'none', color:'#fff', padding:'5px 12px', cursor:'pointer', fontSize:12, fontWeight:view===v?700:400 }}>
+                {label}
+              </button>
+            ))}
+          </div>
           <button onClick={onClose} style={{ background:'rgba(255,255,255,0.15)', border:'none', borderRadius:6, padding:'5px 10px', color:'#fff', cursor:'pointer', fontSize:13 }}>✕ Close</button>
         </div>
       )}
 
       {/* Desktop: two-column. Mobile: single-column with view switching */}
       <div style={{ flex:1, overflow:'hidden', display:'flex' }}>
+      {view === 'map' && (
+        <WorldMap
+          theme={theme}
+          onOpenBuilder={onOpenBuilder}
+          onSelectAnimal={name => { setSelected(name); setView('list'); }}
+        />
+      )}
+      {view === 'list' && <div style={{ flex:1, overflow:'hidden', display:'flex' }}>
 
         {/* ── LEFT: filters + list ── Hidden on mobile when viewing detail */}
         <div style={{
@@ -395,6 +413,8 @@ export default function Zoopedia({ theme, onOpenBuilder, isModal, onClose }) {
             )
           }
         </div>
+      </div>}
+
       </div>
     </div>
   );
