@@ -1,7 +1,7 @@
 // Google Sheets sync layer — with retry, cache-busting, and robust parsing
 
 const API = '/api/sheets';
-const CACHE_KEY = 'pzt_cache_v3';
+const CACHE_KEY = 'pzt_cache_v4'; // bumped — clears stale pre-credentials-fix cache
 const CACHE_TTL = 30_000; // 30s — stale after this, always re-fetch on tab switch
 
 function loadCache() {

@@ -114,27 +114,43 @@ export default function App() {
 
   useEffect(() => { if (activeZooId) loadTab(tab); }, [tab, activeZooId]);
 
+  // Full reload — fetches all tabs for the current activeZooId
+  const fullReload = async (targetId) => {
+    const id = targetId || activeZooId;
+    if (!id) return;
+    showSync('loading', 'Loading…');
+    try {
+      // Load zoo list
+      const zooRows = await readZoos();
+      if (zooRows.length > 0) {
+        const loaded = zooRows.map(r => ({ ...DEFAULT_ZOO(), ...r, id: r.id || r.zoo_id }));
+        setZoos(loaded);
+        // Use the first zoo that matches, or first zoo overall
+        const match = loaded.find(z => z.id === id) || loaded[0];
+        if (match.id !== id) setActiveZooId(match.id);
+      }
+      // Load all tabs in parallel
+      const tabs = Object.entries(TAB_SHEET);
+      const results = await Promise.allSettled(tabs.map(([, st]) => readTab(st, id)));
+      let loadedCount = 0;
+      results.forEach((r, i) => {
+        if (r.status === 'fulfilled') { applySheetData(tabs[i][1], r.value, id); loadedCount++; }
+        else console.warn('[sync] Failed tab:', tabs[i][1], r.reason?.message);
+      });
+      showSync('ok', `Loaded ${loadedCount}/${tabs.length} tabs`);
+      setTimeout(() => showSync('idle'), 2500);
+    } catch (e) {
+      console.error('[sync] Full reload failed:', e);
+      showSync('error', 'Sync failed — check /api/debug');
+      setTimeout(() => showSync('idle'), 4000);
+    }
+  };
+
   useEffect(() => {
-    if (isInit.current || !activeZooId) return;
-    isInit.current = true;
-    (async () => {
-      try {
-        showSync('loading', 'Loading…');
-        const zooRows = await readZoos();
-        let targetId = activeZooId;
-        if (zooRows.length > 0) {
-          const loaded = zooRows.map(r => ({ ...DEFAULT_ZOO(), ...r, id:r.id||r.zoo_id }));
-          setZoos(loaded);
-          targetId = loaded[0].id;
-          setActiveZooId(targetId);
-        }
-        const tabs = Object.entries(TAB_SHEET);
-        const results = await Promise.allSettled(tabs.map(([,st]) => readTab(st, targetId)));
-        results.forEach((r,i) => { if (r.status==='fulfilled') applySheetData(tabs[i][1], r.value, targetId); });
-        showSync('ok', 'Connected');
-        setTimeout(() => showSync('idle'), 2000);
-      } catch { showSync('error', 'Offline mode'); setTimeout(() => showSync('idle'), 3000); }
-    })();
+    if (!activeZooId) return;
+    if (isInit.current === activeZooId) return; // already loaded for this zoo
+    isInit.current = activeZooId;
+    fullReload(activeZooId);
   }, [activeZooId]);
 
   const makeSetter = (key, sheetTab) => (val) => {
@@ -213,11 +229,17 @@ export default function App() {
 
             <ZooManager zoos={zoos} activeZooId={activeZooId} setActiveZooId={id => { setActiveZooId(id); isInit.current=false; }} addZoo={addZoo} renameZoo={renameZoo} deleteZoo={deleteZoo} />
 
-            {/* Sync pill */}
-            {syncStatus !== 'idle' && (
+            {/* Sync pill + manual refresh */}
+            {syncStatus !== 'idle' ? (
               <div style={{ fontSize:11, color:syncColors[syncStatus], padding:'2px 7px', background:`${syncColors[syncStatus]}18`, borderRadius:20, border:`1px solid ${syncColors[syncStatus]}44`, flexShrink:0 }}>
                 {syncLabels[syncStatus]} {syncMsg}
               </div>
+            ) : (
+              <button onClick={() => { isInit.current = null; fullReload(activeZooId); }}
+                style={{ fontSize:11, color:'#3a5030', padding:'2px 7px', background:'transparent', borderRadius:20, border:'1px solid #1e2a18', flexShrink:0, cursor:'pointer' }}
+                title="Refresh data from Google Sheets">
+                ⟳
+              </button>
             )}
 
             <div style={{ flex:1 }} />
