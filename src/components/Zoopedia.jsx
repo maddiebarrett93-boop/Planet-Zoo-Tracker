@@ -295,11 +295,11 @@ export default function Zoopedia({ theme, onOpenBuilder, isModal, onClose }) {
 
   // Container — full screen when modal
   const containerStyle = isModal
-    ? { position:'fixed', inset:0, zIndex:600, background:'#0a0d09', display:'flex', flexDirection:'column', overflow:'hidden' }
+    ? { position:'fixed', inset:0, zIndex:600, background:'#0a0d09', display:'flex', flexDirection:'column', overflow:'hidden', '--modal':1 }
     : { height:'calc(100vh - 110px)', display:'flex', flexDirection:'column', overflow:'hidden' };
 
   return (
-    <div style={containerStyle}>
+    <div style={containerStyle} data-modal={isModal ? 'true' : 'false'}>
       {/* Modal header (when opened as overlay) */}
       {isModal && (
         <div style={{ background:accent, padding:'12px 16px', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
@@ -317,7 +317,7 @@ export default function Zoopedia({ theme, onOpenBuilder, isModal, onClose }) {
       )}
 
       {/* Desktop: two-column. Mobile: single-column with view switching */}
-      <div style={{ flex:1, overflow:'hidden', display:'flex', minHeight:0 }}>
+      <div style={{ flex:1, display:'flex', minHeight:0, overflow:'hidden' }}>
       {view === 'map' && (
         <WorldMap
           theme={theme}
@@ -339,18 +339,24 @@ export default function Zoopedia({ theme, onOpenBuilder, isModal, onClose }) {
                 width: 100% !important;
                 display: ${mobileView==='list'?'flex':'none'} !important;
                 border-right: none !important;
-                flex-shrink: 0 !important;
               }
               .zoo-right-panel {
                 display: ${mobileView==='detail'?'block':'none'} !important;
+                position: fixed !important;
+                inset: 0 !important;
+                top: 110px !important;
                 width: 100% !important;
-                min-height: 100vh !important;
+                height: calc(100vh - 110px) !important;
                 overflow-y: auto !important;
                 -webkit-overflow-scrolling: touch !important;
-                flex: none !important;
+                z-index: 10 !important;
+                background: #0a0d09 !important;
               }
-              .zoo-right-panel > div {
-                min-height: 100vh;
+            }
+            @media (max-width: 640px) {
+              [data-modal="true"] .zoo-right-panel {
+                top: 56px !important;
+                height: calc(100vh - 56px) !important;
               }
             }
           `}</style>
@@ -421,7 +427,7 @@ export default function Zoopedia({ theme, onOpenBuilder, isModal, onClose }) {
         </div>
 
         {/* ── RIGHT: animal card ── */}
-        <div style={{ flex:1, overflowY:'auto', overflowX:'hidden', WebkitOverflowScrolling:'touch', padding:'0', minHeight:0 }} className="zoo-right-panel">
+        <div style={{ flex:1, overflowY:'auto', overflowX:'hidden', WebkitOverflowScrolling:'touch', padding:'0', minHeight:0, height:'100%' }} className="zoo-right-panel">
           {selectedAnimal
             ? <AnimalCard animal={selectedAnimal} theme={theme} onOpenBuilder={onOpenBuilder} onBack={mobileView==='detail' ? handleBack : null} />
             : (
