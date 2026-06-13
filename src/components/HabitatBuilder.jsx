@@ -183,10 +183,10 @@ export default function HabitatBuilder({ onClose, initialSpecies, onCommit, them
           <button onClick={onClose} style={{ background:'rgba(255,255,255,0.15)', border:'none', borderRadius:6, padding:'5px 9px', color:'#fff', cursor:'pointer' }}><X size={16}/></button>
         </div>
 
-        <div style={{ display:'flex', flex:1, overflow:'hidden', flexDirection:'row' }}>
+        <div style={{ display:'flex', flex:1, overflow:'hidden', flexDirection:'row', flexWrap:'wrap' }}>
 
           {/* ── LEFT PANEL ── */}
-          <div style={{ width:270, flexShrink:0, borderRight:'1px solid #1e2a18', padding:'12px', overflowY:'auto', display:'flex', flexDirection:'column', gap:12 }}>
+          <div style={{ width:300, flexShrink:0, borderRight:'1px solid #1e2a18', padding:'12px', overflowY:'auto', display:'flex', flexDirection:'column', gap:10, minWidth:0 }}>
 
             {/* Species picker */}
             <div>

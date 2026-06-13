@@ -13,10 +13,13 @@ function saveCache(c) {
 
 // ── Fetch with retry (3 attempts, exponential backoff) ────────────────────
 async function fetchWithRetry(url, options = {}, attempts = 3) {
+  // Guard: don't fire requests with no meaningful params
+  if (url === '/api/sheets' || url === '/api/sheets?') return { ok: false, json: async () => ({ rows: [] }) };
   let lastError;
   for (let i = 0; i < attempts; i++) {
     try {
-      const r = await fetch(url + (url.includes('?') ? '&' : '?') + `_=${Date.now()}`, options);
+      const sep = url.includes('?') ? '&' : '?';
+      const r = await fetch(`${url}${sep}_=${Date.now()}`, options);
       if (r.ok) return r;
       // 4xx = don't retry (bad request), 5xx = retry
       if (r.status < 500) throw new Error(`HTTP ${r.status}`);
