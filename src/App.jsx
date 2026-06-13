@@ -9,6 +9,7 @@ import Peeps from './components/Peeps.jsx';
 import Zoopedia from './components/Zoopedia.jsx';
 import ZooManager from './components/ZooManager.jsx';
 import HabitatBuilder from './components/HabitatBuilder.jsx';
+import HabitatQuiz from './components/HabitatQuiz.jsx';
 import { DEFAULT_ZOO, PZ1_ANIMALS, PZ2_ANIMALS } from './data/constants.js';
 import { readTab, writeTab, readCache, readCacheAny, readZoos, writeZoos, debouncedWrite } from './lib/sheetsSync.js';
 
@@ -25,6 +26,7 @@ const TABS = [
   { id:'habitats',     label:'🏕️', full:'Habitats'     },
   { id:'bloodlines',   label:'🌳', full:'Bloodlines'   },
   { id:'peeps',        label:'🎪', full:'Peeps'        },
+  { id:'quiz',          label:'🎯', full:'Finder'       },
 ];
 
 // Tab → Sheet tab name mapping
@@ -294,6 +296,7 @@ export default function App() {
           }}
           roster={zoo.roster||[]} speciesList={speciesList} theme={theme} />}
         {tab==='peeps'        && <Peeps peeps={zoo.peeps||{zones:[],facilities:[],vendors:[],restaurants:[]}} setPeeps={makeSetter('peeps','Peeps')} theme={theme} habitats={zoo.habitats||[]} />}
+        {tab==='quiz'          && <HabitatQuiz theme={theme} onOpenBuilder={openBuilder} />}
       </div>
 
       {zoopediaOpen && <Zoopedia theme={theme} onOpenBuilder={(sp)=>{setZoopediaOpen(false);openBuilder(sp);}} isModal onClose={()=>setZoopediaOpen(false)} />}

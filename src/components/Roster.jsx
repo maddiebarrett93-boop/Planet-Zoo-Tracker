@@ -161,7 +161,12 @@ export default function Roster({ roster, setRoster, pzVersion, speciesList }) {
   const species = [...new Set(roster.map(r => r.species))].sort();
   const animalNames = roster.map(r => r.name).filter(Boolean);
 
-  const filtered = roster.filter(r => {
+  // Split active vs archived
+  const archived = roster.filter(r => r.disposition === 'Sell' || r.disposition === 'Release');
+  const active   = roster.filter(r => r.disposition !== 'Sell' && r.disposition !== 'Release');
+  const baseList = showArchive ? archived : active;
+
+  const filtered = baseList.filter(r => {
     const q = search.toLowerCase();
     return (!q || r.name?.toLowerCase().includes(q) || r.species?.toLowerCase().includes(q))
       && (!filterSpecies || r.species === filterSpecies)

@@ -317,7 +317,7 @@ export default function Zoopedia({ theme, onOpenBuilder, isModal, onClose }) {
       )}
 
       {/* Desktop: two-column. Mobile: single-column with view switching */}
-      <div style={{ flex:1, overflow:'hidden', display:'flex' }}>
+      <div style={{ flex:1, overflow:'hidden', display:'flex', minHeight:0 }}>
       {view === 'map' && (
         <WorldMap
           theme={theme}
@@ -335,8 +335,23 @@ export default function Zoopedia({ theme, onOpenBuilder, isModal, onClose }) {
         }} className="zoo-left-panel">
           <style>{`
             @media (max-width: 640px) {
-              .zoo-left-panel { width: 100% !important; display: ${mobileView==='list'?'flex':'none'} !important; border-right: none !important; }
-              .zoo-right-panel { display: ${mobileView==='detail'?'flex':'none'} !important; width: 100% !important; }
+              .zoo-left-panel {
+                width: 100% !important;
+                display: ${mobileView==='list'?'flex':'none'} !important;
+                border-right: none !important;
+                flex-shrink: 0 !important;
+              }
+              .zoo-right-panel {
+                display: ${mobileView==='detail'?'block':'none'} !important;
+                width: 100% !important;
+                min-height: 100vh !important;
+                overflow-y: auto !important;
+                -webkit-overflow-scrolling: touch !important;
+                flex: none !important;
+              }
+              .zoo-right-panel > div {
+                min-height: 100vh;
+              }
             }
           `}</style>
 

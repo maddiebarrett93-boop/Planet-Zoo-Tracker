@@ -124,11 +124,11 @@ export default function WorldMap({ theme, onOpenBuilder, onSelectAnimal }) {
       <div style={{ display:'flex', flex:1, overflow:'hidden', gap:0 }}>
 
         {/* ── SVG Map ── */}
-        <div style={{ flex:1, position:'relative', overflow:'hidden', background:'#080d08' }}>
+        <div className="map-svg-wrap" style={{ flex:1, position:'relative', overflow:'hidden', background:'#080d08' }}>
           <svg
             viewBox={`0 0 ${W} ${H}`}
-            style={{ width:'100%', height:'100%', display:'block' }}
-            preserveAspectRatio="xMidYMid meet"
+            style={{ width:'100%', height:'100%', display:'block', touchAction:'none' }}
+            preserveAspectRatio="xMidYMid slice"
           >
             {/* Ocean background */}
             <rect x={0} y={0} width={W} height={H} fill="#0a1018" />
@@ -222,7 +222,7 @@ export default function WorldMap({ theme, onOpenBuilder, onSelectAnimal }) {
         </div>
 
         {/* ── Sidebar: animal results ── */}
-        <div style={{ width:260, flexShrink:0, borderLeft:'1px solid #1e2a18', display:'flex', flexDirection:'column', background:'#0a0d09', overflow:'hidden' }}>
+        <div className="map-sidebar" style={{ width:260, flexShrink:0, borderLeft:'1px solid #1e2a18', display:'flex', flexDirection:'column', background:'#0a0d09', overflow:'hidden' }}>
           {!selectedRegion ? (
             <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100%', gap:10, padding:'1.5rem', color:'#3a5030', textAlign:'center' }}>
               <div style={{ fontSize:36 }}>🌍</div>
