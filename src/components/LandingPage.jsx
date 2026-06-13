@@ -31,7 +31,7 @@ function ZooCard({ zoo, onSelect, onDelete, isOnly }) {
 
       {/* Zoo name */}
       <div style={{ fontSize:22, fontWeight:800, color:'#e0ecc0', marginBottom:4, paddingRight:28 }}>{zoo.name}</div>
-      <div style={{ fontSize:11, color:'#5a7050', marginBottom:'1.25rem', fontFamily:'monospace' }}>{zoo.id}</div>
+      <div style={{ fontSize:11, color:'#5a7050', marginBottom:'1.25rem', fontFamily:"'Inter',system-ui,sans-serif" }}>{zoo.id}</div>
 
       {/* Stats grid */}
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:'1rem' }}>
@@ -87,7 +87,7 @@ export default function LandingPage({ zoos, onSelect, onAdd, onDelete, theme }) 
       {/* Header */}
       <div style={{ textAlign:'center', marginBottom:'2.5rem' }}>
         <div style={{ fontSize:48, marginBottom:12 }}>🦒</div>
-        <div style={{ fontSize:28, fontWeight:800, color:'#e0ecc0', letterSpacing:'-0.02em', marginBottom:8, fontFamily:"'Trebuchet MS','Gill Sans',system-ui,sans-serif" }}>
+        <div style={{ fontSize:28, fontWeight:800, color:'#e0ecc0', letterSpacing:'-0.02em', marginBottom:8 }}>
           Planet Zoo Tracker
         </div>
         <div style={{ fontSize:15, color:'#5a7050' }}>What are we working with today?</div>

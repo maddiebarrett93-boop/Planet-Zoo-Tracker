@@ -10,6 +10,7 @@ import Peeps from './components/Peeps.jsx';
 import Zoopedia from './components/Zoopedia.jsx';
 import HabitatBuilder from './components/HabitatBuilder.jsx';
 import HabitatQuiz from './components/HabitatQuiz.jsx';
+import TaxonomyExplorer from './components/TaxonomyExplorer.jsx';
 import ZooManager from './components/ZooManager.jsx';
 import { DEFAULT_ZOO, PZ1_ANIMALS, PZ2_ANIMALS } from './data/constants.js';
 import { readTab, writeTab, readCache, readCacheAny, readZoos, writeZoos, debouncedWrite } from './lib/sheetsSync.js';
@@ -49,6 +50,7 @@ export default function App() {
   const [builderOpen, setBuilderOpen]   = useState(false);
   const [builderSpecies, setBuilderSpecies] = useState('');
   const [quizOpen, setQuizOpen]         = useState(false);
+  const [taxonomyOpen, setTaxonomyOpen]   = useState(false);
   const [paletteOpen, setPaletteOpen]   = useState(false);
 
   // ── Sync ─────────────────────────────────────────────────────────────
@@ -189,7 +191,7 @@ export default function App() {
 
   // ── MAIN APP ──────────────────────────────────────────────────────────
   return (
-    <div style={{ minHeight:'100vh', background:'#0a0d09', color:'#c8d8a8', fontFamily:"'Trebuchet MS','Gill Sans',sans-serif" }}>
+    <div style={{ minHeight:'100vh', background:'#0a0d09', color:'#c8d8a8', fontFamily:"'Inter',system-ui,sans-serif" }}>
       <style>{`
         :root{--accent:${theme.accent};--accent-dim:${theme.accentDim};--accent-light:${theme.accentLight};--accent-bg:${theme.accentBg};--accent-border:${theme.accentBorder};}
         input:focus,select:focus,textarea:focus{outline:2px solid ${theme.accent} !important;outline-offset:1px;}
@@ -241,6 +243,7 @@ export default function App() {
                 { icon:'📖', label:'Zoopedia', sub:'Species reference', action:() => { setZoopediaOpen(true); setPaletteOpen(false); } },
                 { icon:'🏗️', label:'Habitat Builder', sub:'Plan & calculate', action:() => { openBuilder(); } },
                 { icon:'🎯', label:'Species Finder', sub:'Get recommendations', action:() => { setQuizOpen(true); setPaletteOpen(false); } },
+                { icon:'🎓', label:'Taxonomy Guide', sub:'Learn animal classification', action:() => { setTaxonomyOpen(true); setPaletteOpen(false); } },
               ].map(t => (
                 <button key={t.label} onClick={t.action}
                   style={{ display:'flex', alignItems:'center', gap:10, background:theme.accentBg, border:`1px solid ${theme.accentBorder}`, borderRadius:10, padding:'8px 14px', cursor:'pointer', textAlign:'left', flex:1, minWidth:0 }}>
@@ -311,6 +314,14 @@ export default function App() {
           <div style={{ background:'#111a0f', border:`1px solid ${theme.accentBorder}`, borderRadius:14, width:'100%', maxWidth:640, padding:'1.5rem', position:'relative' }}>
             <button onClick={() => setQuizOpen(false)} style={{ position:'absolute', top:14, right:14, background:'none', border:'none', color:'#5a7050', cursor:'pointer', fontSize:18 }}>✕</button>
             <HabitatQuiz theme={theme} onOpenBuilder={sp => { setQuizOpen(false); openBuilder(sp); }} />
+          </div>
+        </div>
+      )}
+      {taxonomyOpen && (
+        <div style={{ position:'fixed', inset:0, zIndex:500, background:'rgba(0,0,0,0.7)', display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'1rem', overflowY:'auto' }}>
+          <div style={{ background:'#111a0f', border:`1px solid ${theme.accentBorder}`, borderRadius:14, width:'100%', maxWidth:860, padding:'1.5rem', position:'relative', marginTop:'1rem' }}>
+            <button onClick={() => setTaxonomyOpen(false)} style={{ position:'absolute', top:14, right:14, background:'none', border:'none', color:'#5a7050', cursor:'pointer', fontSize:18 }}>✕</button>
+            <TaxonomyExplorer theme={theme} onSelectAnimal={name => { setTaxonomyOpen(false); setZoopediaOpen(true); }} />
           </div>
         </div>
       )}

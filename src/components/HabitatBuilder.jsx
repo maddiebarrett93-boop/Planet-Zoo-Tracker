@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { X, Plus, Minus, Check, Trash2 } from 'lucide-react';
 import { PZ1_ZOOPEDIA_MAP, PZ1_ZOOPEDIA } from '../data/pz1_zoopedia.js';
 import { AnimalImage } from './AnimalImage.jsx';
+import FenceDesigner from './FenceDesigner.jsx';
 
 function calcRequired(base, addPer, count) {
   // Coerce strings from spreadsheet data to numbers
@@ -93,6 +94,7 @@ export default function HabitatBuilder({ onClose, initialSpecies, onCommit, them
   const [hasConservGoal, setHasConservGoal] = useState(false);
   const [habitatName, setHabitatName]     = useState('');
   const [searchQ, setSearchQ]             = useState('');
+  const [showFence, setShowFence]           = useState(false);
 
   const animal     = PZ1_ZOOPEDIA_MAP[species];
   const adultCount = males + females;
@@ -416,7 +418,27 @@ export default function HabitatBuilder({ onClose, initialSpecies, onCommit, them
                   </div>
                 </div>
 
-                <button onClick={commit}
+                {/* Phase 2 - Fence Designer */}
+        <div style={{ background:'#0a120a', border:'1px solid #1e2a18', borderRadius:8, marginBottom:16, overflow:'hidden' }}>
+          <button onClick={() => setShowFence(v => !v)}
+            style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'11px 14px', background:'transparent', border:'none', cursor:'pointer', textAlign:'left' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+              <span style={{ fontSize:16 }}>📐</span>
+              <div>
+                <div style={{ fontSize:13, fontWeight:600, color:'#c8d8a8' }}>Phase 2 — Fence Designer</div>
+                <div style={{ fontSize:11, color:'#5a7050' }}>Calculate 4m wall segments for your enclosure shape</div>
+              </div>
+            </div>
+            <span style={{ color:'#5a7050', fontSize:14 }}>{showFence ? '▲' : '▼'}</span>
+          </button>
+          {showFence && (
+            <div style={{ borderTop:'1px solid #1a2218', padding:'14px' }}>
+              <FenceDesigner animal={animal} theme={theme} adultCount={adultCount} />
+            </div>
+          )}
+        </div>
+
+        <button onClick={commit}
                   style={{ width:'100%', background:accent, border:'none', borderRadius:8, padding:'12px', color:'#fff', fontSize:15, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
                   <Check size={16}/> Commit Enclosure to Zoo
                 </button>

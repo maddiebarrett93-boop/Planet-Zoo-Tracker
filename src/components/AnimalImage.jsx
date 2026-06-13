@@ -7,43 +7,40 @@ const STATUS_COLORS = {
   'Data Deficient':'#7a9460','Domesticated':'#4a9ab8',
 };
 
-// Route Fandom images through our proxy to bypass hotlink protection
-function proxyUrl(src) {
-  if (!src) return null;
-  if (src.includes('wikia.nocookie.net') || src.includes('wikia.net')) {
-    return `/api/img?url=${encodeURIComponent(src)}`;
-  }
-  return src;
-}
-
 export function AnimalImage({ src, alt, type, conservationStatus, style = {} }) {
   const [failed, setFailed] = useState(false);
   const icon  = TYPE_ICONS[type] || '🐾';
   const color = STATUS_COLORS[conservationStatus] || '#2e4028';
-  const proxied = proxyUrl(src);
+  const name  = alt || '';
 
-  if (!proxied || failed) {
+  // Fallback: stylized card with animal name + type icon
+  if (!src || failed) {
     return (
       <div style={{
         display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
-        background:`${color}18`, border:`1px solid ${color}44`,
+        background:`linear-gradient(135deg, ${color}18 0%, ${color}08 100%)`,
+        border:`1px solid ${color}33`,
         color, borderRadius: style.borderRadius ?? 8,
+        overflow:'hidden',
         ...style,
       }}>
-        <span style={{ fontSize: typeof style.height === 'number' && style.height > 50 ? '2rem' : '1.2rem' }}>{icon}</span>
-        {typeof style.height === 'number' && style.height > 70 && (
-          <span style={{ fontSize:10, color:'#3a5030', marginTop:4, textAlign:'center', padding:'0 4px', lineHeight:1.3 }}>{alt}</span>
+        <span style={{ fontSize: typeof style.height === 'number' && style.height > 50 ? '2rem' : '1.4rem', lineHeight:1 }}>{icon}</span>
+        {typeof style.height === 'number' && style.height > 60 && name && (
+          <span style={{ fontSize:9, color:`${color}aa`, marginTop:4, textAlign:'center', padding:'0 4px', lineHeight:1.2, maxWidth:'100%', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{name}</span>
         )}
       </div>
     );
   }
 
+  // Load directly from Fandom CDN — works fine browser-side, only blocked server-side
+  // Add crossOrigin anonymous so errors are caught properly
   return (
     <img
-      src={proxied}
-      alt={alt || ''}
+      src={src}
+      alt={name}
       style={{ objectFit:'cover', ...style }}
       onError={() => setFailed(true)}
+      loading="lazy"
     />
   );
 }
