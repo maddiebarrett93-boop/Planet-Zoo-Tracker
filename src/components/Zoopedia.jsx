@@ -319,11 +319,13 @@ export default function Zoopedia({ theme, onOpenBuilder, isModal, onClose }) {
       {/* Desktop: two-column. Mobile: single-column with view switching */}
       <div style={{ flex:1, display:'flex', minHeight:0, overflow:'hidden', position:'relative' }}>
       {view === 'map' && (
-        <WorldMap
-          theme={theme}
-          onOpenBuilder={onOpenBuilder}
-          onSelectAnimal={name => { setSelected(name); setView('list'); }}
-        />
+        <div style={{ flex:1, minWidth:0, overflow:'hidden' }}>
+          <WorldMap
+            theme={theme}
+            onOpenBuilder={onOpenBuilder}
+            onSelectAnimal={name => { setSelected(name); setView('list'); }}
+          />
+        </div>
       )}
       {view === 'list' && <div style={{ flex:1, display:'flex', minHeight:0, overflow:'hidden' }}>
 
@@ -343,20 +345,17 @@ export default function Zoopedia({ theme, onOpenBuilder, isModal, onClose }) {
               .zoo-right-panel {
                 display: ${mobileView==='detail'?'block':'none'} !important;
                 position: fixed !important;
-                inset: 0 !important;
-                top: 110px !important;
+                top: 56px !important;
+                left: 0 !important;
+                right: 0 !important;
+                bottom: 0 !important;
                 width: 100% !important;
-                height: calc(100vh - 110px) !important;
-                overflow-y: auto !important;
+                overflow-y: scroll !important;
                 -webkit-overflow-scrolling: touch !important;
+                overscroll-behavior: contain !important;
                 z-index: 10 !important;
                 background: #0a0d09 !important;
-              }
-            }
-            @media (max-width: 640px) {
-              [data-modal="true"] .zoo-right-panel {
-                top: 56px !important;
-                height: calc(100vh - 56px) !important;
+                padding-bottom: 80px !important;
               }
             }
           `}</style>

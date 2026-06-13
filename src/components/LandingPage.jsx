@@ -87,7 +87,7 @@ export default function LandingPage({ zoos, onSelect, onAdd, onDelete, theme }) 
       {/* Header */}
       <div style={{ textAlign:'center', marginBottom:'2.5rem' }}>
         <div style={{ fontSize:48, marginBottom:12 }}>🦒</div>
-        <div style={{ fontSize:28, fontWeight:800, color:'#e0ecc0', letterSpacing:'-0.02em', marginBottom:8 }}>
+        <div style={{ fontSize:28, fontWeight:800, color:'#e0ecc0', letterSpacing:'-0.02em', marginBottom:8, fontFamily:"'Trebuchet MS','Gill Sans',system-ui,sans-serif" }}>
           Planet Zoo Tracker
         </div>
         <div style={{ fontSize:15, color:'#5a7050' }}>What are we working with today?</div>
