@@ -295,8 +295,8 @@ export default function Zoopedia({ theme, onOpenBuilder, isModal, onClose }) {
 
   // Container — full screen when modal
   const containerStyle = isModal
-    ? { position:'fixed', inset:0, zIndex:600, background:'#0a0d09', display:'flex', flexDirection:'column', overflow:'hidden', '--modal':1 }
-    : { height:'calc(100vh - 110px)', display:'flex', flexDirection:'column', overflow:'hidden' };
+    ? { position:'fixed', inset:0, zIndex:600, background:'#0a0d09', display:'flex', flexDirection:'column' }
+    : { height:'calc(100vh - 110px)', display:'flex', flexDirection:'column' };
 
   return (
     <div style={containerStyle} data-modal={isModal ? 'true' : 'false'}>
@@ -317,7 +317,7 @@ export default function Zoopedia({ theme, onOpenBuilder, isModal, onClose }) {
       )}
 
       {/* Desktop: two-column. Mobile: single-column with view switching */}
-      <div style={{ flex:1, display:'flex', minHeight:0, overflow:'hidden' }}>
+      <div style={{ flex:1, display:'flex', minHeight:0, overflow:'hidden', position:'relative' }}>
       {view === 'map' && (
         <WorldMap
           theme={theme}
@@ -325,7 +325,7 @@ export default function Zoopedia({ theme, onOpenBuilder, isModal, onClose }) {
           onSelectAnimal={name => { setSelected(name); setView('list'); }}
         />
       )}
-      {view === 'list' && <div style={{ flex:1, overflow:'hidden', display:'flex' }}>
+      {view === 'list' && <div style={{ flex:1, display:'flex', minHeight:0, overflow:'hidden' }}>
 
         {/* ── LEFT: filters + list ── Hidden on mobile when viewing detail */}
         <div style={{

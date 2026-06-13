@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import LandingPage from './components/LandingPage.jsx';
 import Dashboard from './components/Dashboard.jsx';
 import AnimalInventory from './components/AnimalInventory.jsx';
 import Roster from './components/Roster.jsx';
@@ -7,9 +8,9 @@ import HabitatPlanner from './components/HabitatPlanner.jsx';
 import BloodlineTracker from './components/BloodlineTracker.jsx';
 import Peeps from './components/Peeps.jsx';
 import Zoopedia from './components/Zoopedia.jsx';
-import ZooManager from './components/ZooManager.jsx';
 import HabitatBuilder from './components/HabitatBuilder.jsx';
 import HabitatQuiz from './components/HabitatQuiz.jsx';
+import ZooManager from './components/ZooManager.jsx';
 import { DEFAULT_ZOO, PZ1_ANIMALS, PZ2_ANIMALS } from './data/constants.js';
 import { readTab, writeTab, readCache, readCacheAny, readZoos, writeZoos, debouncedWrite } from './lib/sheetsSync.js';
 
@@ -18,6 +19,7 @@ export const THEMES = {
   PZ2: { accent:'#616f43', accentDim:'#434e2e', accentLight:'#8a9c5e', accentBg:'#0f1209', accentBorder:'#3a4428', tabActive:'#111a0f', name:'Planet Zoo 2' },
 };
 
+// Operational tabs only — tools are in the palette
 const TABS = [
   { id:'dashboard',    label:'🏠', full:'Dashboard'    },
   { id:'inventory',    label:'🦁', full:'Inventory'    },
@@ -26,37 +28,33 @@ const TABS = [
   { id:'habitats',     label:'🏕️', full:'Habitats'     },
   { id:'bloodlines',   label:'🌳', full:'Bloodlines'   },
   { id:'peeps',        label:'🎪', full:'Peeps'        },
-  { id:'quiz',          label:'🎯', full:'Finder'       },
 ];
 
-// Tab → Sheet tab name mapping
 const TAB_SHEET = {
-  inventory:    'Animals',
-  roster:       'Roster',
-  conservation: 'Conservation',
-  habitats:     'Habitats',
-  bloodlines:   'Bloodlines',
-  peeps:        'Peeps',
+  inventory:'Animals', roster:'Roster', conservation:'Conservation',
+  habitats:'Habitats', bloodlines:'Bloodlines', peeps:'Peeps',
 };
 
-// Always try Sheets sync — the API itself will return an error if not configured,
-// and we gracefully fall back to local state. No build-time flag needed.
-const SHEETS_ENABLED = true;
-
 const SEED = DEFAULT_ZOO(); SEED.name = 'My First Zoo';
-// No sample animals — start empty so Sheets data loads cleanly
 
 export default function App() {
+  // ── Landing / zoo selection ─────────────────────────────────────────
   const [zoos, setZoos]               = useState([SEED]);
-  const [activeZooId, setActiveZooId] = useState(SEED.id);
+  const [activeZooId, setActiveZooId] = useState(null); // null = show landing
   const [tab, setTab]                 = useState('dashboard');
   const [pzVersion, setPzVersion]     = useState('PZ1');
-  const [builderOpen, setBuilderOpen] = useState(false);
+
+  // ── Tool overlays ────────────────────────────────────────────────────
+  const [zoopediaOpen, setZoopediaOpen] = useState(false);
+  const [builderOpen, setBuilderOpen]   = useState(false);
   const [builderSpecies, setBuilderSpecies] = useState('');
-  const [zoopediaOpen, setZoopediaOpen]     = useState(false);
-  const [syncStatus, setSyncStatus]   = useState('idle'); // 'idle'|'loading'|'saving'|'error'|'ok'
-  const [syncMsg, setSyncMsg]         = useState('');
-  const isInitialized                 = useRef(false);
+  const [quizOpen, setQuizOpen]         = useState(false);
+  const [paletteOpen, setPaletteOpen]   = useState(false);
+
+  // ── Sync ─────────────────────────────────────────────────────────────
+  const [syncStatus, setSyncStatus] = useState('idle');
+  const [syncMsg, setSyncMsg]       = useState('');
+  const isInit = useRef(false);
 
   const theme      = THEMES[pzVersion];
   const animalDb   = pzVersion === 'PZ2' ? PZ2_ANIMALS : PZ1_ANIMALS;
@@ -64,25 +62,42 @@ export default function App() {
 
   const zoo       = zoos.find(z=>z.id===activeZooId) || zoos[0];
   const updateZoo = useCallback((patch) => {
-    setZoos(prev => prev.map(z => z.id===activeZooId ? { ...z, ...(typeof patch==='function' ? patch(z) : patch) } : z));
+    setZoos(prev => prev.map(z => z.id===activeZooId ? { ...z, ...(typeof patch==='function'?patch(z):patch) } : z));
   }, [activeZooId]);
 
-  // ── Sheets sync helpers ─────────────────────────────────────────────────
-  const showSync = (status, msg='') => { setSyncStatus(status); setSyncMsg(msg); };
+  const showSync = (s, m='') => { setSyncStatus(s); setSyncMsg(m); };
 
-  // Load a tab's data from Sheets (or cache) when switching tabs
+  function applySheetData(sheetTab, rows, zooId) {
+    const parsed = rows.map(r => {
+      const out = { ...r };
+      ['regions','biomes','companions'].forEach(k => {
+        if (typeof out[k]==='string' && (out[k].startsWith('[')||out[k].startsWith('{'))) { try { out[k]=JSON.parse(out[k]); } catch {} }
+      });
+      ['isAlpha','isBonded','isOutsider'].forEach(k => {
+        if (out[k]==='true') out[k]=true;
+        if (out[k]==='false') out[k]=false;
+      });
+      ['males','females','id','fertility','immunity','size','longevity','appeal',
+       'goalPop','currentPop','releaseGoal','released','generation','actualLandSpace',
+       'actualWaterSpace','baseSpace','perAdditionalSpace','adultCount','guestRating'].forEach(k => {
+        if (out[k]!==''&&out[k]!==null&&out[k]!==undefined&&!isNaN(out[k])) out[k]=+out[k];
+      });
+      delete out.zoo_id;
+      return out;
+    });
+    const map = { Animals:'animals', Roster:'roster', Conservation:'conservation', Habitats:'habitats', Bloodlines:'bloodlines' };
+    const id  = zooId || activeZooId;
+    if (map[sheetTab]) setZoos(prev => prev.map(z => z.id===id ? { ...z, [map[sheetTab]]:parsed } : z));
+    if (sheetTab==='Peeps' && parsed[0]?.data) {
+      try { const p=JSON.parse(parsed[0].data); setZoos(prev=>prev.map(z=>z.id===id?{...z,peeps:p}:z)); } catch {}
+    }
+  }
+
   const loadTab = useCallback(async (tabId) => {
-    if (!SHEETS_ENABLED) return;
     const sheetTab = TAB_SHEET[tabId];
     if (!sheetTab || !activeZooId) return;
-
-    // Show cached data immediately (stale-ok for instant display)
     const cached = readCacheAny(sheetTab, activeZooId);
-    if (cached) {
-      applySheetData(sheetTab, cached);
-    }
-
-    // Then fetch fresh
+    if (cached) applySheetData(sheetTab, cached);
     try {
       showSync('loading');
       const rows = await readTab(sheetTab, activeZooId);
@@ -90,149 +105,95 @@ export default function App() {
       showSync('ok', `${sheetTab} synced`);
       setTimeout(() => showSync('idle'), 2000);
     } catch (e) {
-      showSync('error', 'Sync failed — working offline');
+      showSync('error', 'Offline');
+      setTimeout(() => showSync('idle'), 3000);
     }
   }, [activeZooId]);
 
-  function applySheetData(sheetTab, rows) {
-    const parsed = rows.map(r => {
-      const out = { ...r };
-      ['regions','biomes','companions'].forEach(k => {
-        if (typeof out[k] === 'string' && (out[k].startsWith('[') || out[k].startsWith('{'))) {
-          try { out[k] = JSON.parse(out[k]); } catch {}
-        }
-      });
-      ['isAlpha','isBonded','isOutsider'].forEach(k => {
-        if (out[k] === 'true') out[k] = true;
-        if (out[k] === 'false') out[k] = false;
-      });
-      ['males','females','id','fertility','immunity','size','longevity','appeal',
-       'goalPop','currentPop','releaseGoal','released','generation','actualLandSpace',
-       'actualWaterSpace','baseSpace','perAdditionalSpace','adultCount','guestRating'].forEach(k => {
-        if (out[k] !== '' && out[k] !== null && out[k] !== undefined && !isNaN(out[k])) out[k] = +out[k];
-      });
-      // Remove zoo_id from data objects
-      delete out.zoo_id;
-      return out;
-    });
+  useEffect(() => { if (activeZooId) loadTab(tab); }, [tab, activeZooId]);
 
-    const map = { Animals:'animals', Roster:'roster', Conservation:'conservation', Habitats:'habitats', Bloodlines:'bloodlines' };
-    if (map[sheetTab]) {
-      setZoos(prev => prev.map(z =>
-        z.id === activeZooId ? { ...z, [map[sheetTab]]: parsed } : z
-      ));
-    }
-    if (sheetTab === 'Peeps' && parsed[0]?.data) {
-      try {
-        const peepsData = JSON.parse(parsed[0].data);
-        setZoos(prev => prev.map(z =>
-          z.id === activeZooId ? { ...z, peeps: peepsData } : z
-        ));
-      } catch {}
-    }
-  }
-
-  // Save a tab's data to Sheets (debounced)
-  const saveTab = useCallback((sheetTab, rows) => {
-    if (!SHEETS_ENABLED) return;
-    showSync('saving');
-    debouncedWrite(sheetTab, activeZooId, rows, 1500);
-    setTimeout(() => showSync('idle'), 1800);
-  }, [activeZooId]);
-
-  // Load on tab switch
-  useEffect(() => { loadTab(tab); }, [tab, activeZooId]);
-
-  // Initial load — fetch zoo list then all tabs for the active zoo
   useEffect(() => {
-    if (isInitialized.current) return;
-    isInitialized.current = true;
+    if (isInit.current || !activeZooId) return;
+    isInit.current = true;
     (async () => {
       try {
         showSync('loading', 'Loading…');
-
-        // Load zoo list
         const zooRows = await readZoos();
-        let activeId = activeZooId;
+        let targetId = activeZooId;
         if (zooRows.length > 0) {
-          const loaded = zooRows.map(r => ({ ...DEFAULT_ZOO(), ...r, id: r.id || r.zoo_id }));
+          const loaded = zooRows.map(r => ({ ...DEFAULT_ZOO(), ...r, id:r.id||r.zoo_id }));
           setZoos(loaded);
-          activeId = loaded[0].id;
-          setActiveZooId(activeId);
+          targetId = loaded[0].id;
+          setActiveZooId(targetId);
         }
-
-        // Load all tabs for the active zoo in parallel
-        const tabsToLoad = Object.entries(TAB_SHEET);
-        const results = await Promise.allSettled(
-          tabsToLoad.map(([, sheetTab]) => readTab(sheetTab, activeId))
-        );
-        results.forEach((result, i) => {
-          if (result.status === 'fulfilled') {
-            applySheetData(tabsToLoad[i][1], result.value);
-          }
-        });
-
+        const tabs = Object.entries(TAB_SHEET);
+        const results = await Promise.allSettled(tabs.map(([,st]) => readTab(st, targetId)));
+        results.forEach((r,i) => { if (r.status==='fulfilled') applySheetData(tabs[i][1], r.value, targetId); });
         showSync('ok', 'Connected');
-        setTimeout(() => showSync('idle'), 2500);
-      } catch (e) {
-        console.error('Initial load failed:', e);
-        showSync('error', 'Offline — changes save locally');
-        setTimeout(() => showSync('idle'), 4000);
-      }
+        setTimeout(() => showSync('idle'), 2000);
+      } catch { showSync('error', 'Offline mode'); setTimeout(() => showSync('idle'), 3000); }
     })();
-  }, []);
+  }, [activeZooId]);
 
-  // ── Setters that auto-save ──────────────────────────────────────────────
   const makeSetter = (key, sheetTab) => (val) => {
-    updateZoo(z => ({ [key]: typeof val === 'function' ? val(z[key]) : val }));
-    const rows = typeof val === 'function' ? val(zoo[key]||[]) : val;
-    if (sheetTab === 'Peeps') {
-      saveTab('Peeps', [{ data: JSON.stringify(rows) }]);
-    } else {
-      saveTab(sheetTab, Array.isArray(rows) ? rows : []);
-    }
+    updateZoo(z => ({ [key]: typeof val==='function'?val(z[key]):val }));
+    const rows = typeof val==='function' ? val(zoo[key]||[]) : val;
+    if (sheetTab==='Peeps') debouncedWrite('Peeps', activeZooId, [{ data:JSON.stringify(rows) }]);
+    else if (Array.isArray(rows)) debouncedWrite(sheetTab, activeZooId, rows);
   };
 
-  const addZoo    = (name) => {
+  const addZoo = (name) => {
     const nz = DEFAULT_ZOO(); nz.name = name;
-    setZoos(p => { const next = [...p, nz]; if (SHEETS_ENABLED) writeZoos(next.map(z=>({id:z.id,name:z.name,customStats:z.customStats,createdAt:z.createdAt}))).catch(()=>{}); return next; });
+    setZoos(p => { const n=[...p,nz]; writeZoos(n.map(z=>({id:z.id,name:z.name,customStats:z.customStats,createdAt:z.createdAt}))).catch(()=>{}); return n; });
     setActiveZooId(nz.id);
   };
-  const renameZoo = (id, name) => {
-    setZoos(p => { const next = p.map(z=>z.id===id?{...z,name}:z); if (SHEETS_ENABLED) writeZoos(next.map(z=>({id:z.id,name:z.name,customStats:z.customStats,createdAt:z.createdAt}))).catch(()=>{}); return next; });
-  };
+  const renameZoo = (id, name) => setZoos(p => p.map(z=>z.id===id?{...z,name}:z));
   const deleteZoo = (id) => {
-    setZoos(p => { const next = p.filter(z=>z.id!==id); if (activeZooId===id) setActiveZooId(next[0]?.id); if (SHEETS_ENABLED) writeZoos(next.map(z=>({id:z.id,name:z.name,customStats:z.customStats,createdAt:z.createdAt}))).catch(()=>{}); return next; });
+    setZoos(p => { const n=p.filter(z=>z.id!==id); if(activeZooId===id) setActiveZooId(null); writeZoos(n.map(z=>({id:z.id,name:z.name,customStats:z.customStats,createdAt:z.createdAt}))).catch(()=>{}); return n; });
   };
 
   const handleBuilderCommit = ({ habitat, rosterEntries, hasConservationGoal, species }) => {
     updateZoo(z => {
-      const newHabitats    = [...(z.habitats||[]), habitat];
-      const newRoster      = [...(z.roster||[]), ...rosterEntries];
-      let   newConservation = z.conservation||[];
-      if (hasConservationGoal && !newConservation.find(c=>c.species===species))
-        newConservation = [...newConservation, { id:Date.now(), species, goalPop:rosterEntries.length, currentPop:rosterEntries.length, releaseGoal:0, released:0 }];
-      if (SHEETS_ENABLED) {
-        saveTab('Habitats', newHabitats);
-        saveTab('Roster', newRoster);
-        if (hasConservationGoal) saveTab('Conservation', newConservation);
-      }
-      return { habitats:newHabitats, roster:newRoster, conservation:newConservation };
+      const newH = [...(z.habitats||[]), habitat];
+      const newR = [...(z.roster||[]), ...rosterEntries];
+      let newC   = z.conservation||[];
+      if (hasConservationGoal && !newC.find(c=>c.species===species))
+        newC = [...newC, { id:Date.now(), species, goalPop:rosterEntries.length, currentPop:rosterEntries.length, releaseGoal:0, released:0 }];
+      debouncedWrite('Habitats', activeZooId, newH);
+      debouncedWrite('Roster',   activeZooId, newR);
+      if (hasConservationGoal) debouncedWrite('Conservation', activeZooId, newC);
+      return { habitats:newH, roster:newR, conservation:newC };
     });
   };
 
-  const openBuilder = (sp='') => { setBuilderSpecies(sp); setBuilderOpen(true); };
+  const openBuilder = (sp='') => { setBuilderSpecies(sp); setBuilderOpen(true); setPaletteOpen(false); };
 
-  // Sync status indicator
   const syncColors = { idle:'transparent', loading:'#c8a030', saving:'#4a8aab', ok:'#6ab87a', error:'#c84040' };
-  const syncLabels = { idle:'', loading:'⟳ Syncing…', saving:'⟳ Saving…', ok:'✓ Synced', error:'⚠ Offline' };
+  const syncLabels = { idle:'', loading:'⟳', saving:'⟳', ok:'✓', error:'⚠' };
 
+  // ── LANDING PAGE ─────────────────────────────────────────────────────
+  if (!activeZooId) {
+    return (
+      <>
+        <style>{`:root{--accent:${theme.accent};} input:focus,select:focus,textarea:focus{outline:2px solid ${theme.accent} !important;}`}</style>
+        <LandingPage
+          zoos={zoos}
+          onSelect={id => { setActiveZooId(id); isInit.current = false; }}
+          onAdd={addZoo}
+          onDelete={deleteZoo}
+          theme={theme}
+        />
+      </>
+    );
+  }
+
+  // ── MAIN APP ──────────────────────────────────────────────────────────
   return (
     <div style={{ minHeight:'100vh', background:'#0a0d09', color:'#c8d8a8', fontFamily:"'Trebuchet MS','Gill Sans',sans-serif" }}>
       <style>{`
         :root{--accent:${theme.accent};--accent-dim:${theme.accentDim};--accent-light:${theme.accentLight};--accent-bg:${theme.accentBg};--accent-border:${theme.accentBorder};}
         input:focus,select:focus,textarea:focus{outline:2px solid ${theme.accent} !important;outline-offset:1px;}
-        ::-webkit-scrollbar{width:6px;height:6px;}
+        ::-webkit-scrollbar{width:5px;height:5px;}
         ::-webkit-scrollbar-track{background:#0a0d09;}
         ::-webkit-scrollbar-thumb{background:${theme.accentBorder};border-radius:3px;}
       `}</style>
@@ -241,27 +202,68 @@ export default function App() {
       <div style={{ background:'#060908', borderBottom:`1px solid ${theme.accentBorder}`, position:'sticky', top:0, zIndex:50 }}>
         <div style={{ maxWidth:1280, margin:'0 auto', padding:'0 1rem' }}>
           <div style={{ display:'flex', alignItems:'center', gap:8, padding:'0.5rem 0', flexWrap:'wrap' }}>
-            <div style={{ width:30, height:30, background:theme.accent, borderRadius:7, display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, flexShrink:0 }}>🦒</div>
-            <ZooManager zoos={zoos} activeZooId={activeZooId} setActiveZooId={setActiveZooId} addZoo={addZoo} renameZoo={renameZoo} deleteZoo={deleteZoo} />
 
-            {/* Sync status */}
+            {/* Back to zoos */}
+            <button onClick={() => setActiveZooId(null)}
+              style={{ background:'none', border:'none', color:'#5a7050', cursor:'pointer', fontSize:20, padding:0, flexShrink:0, lineHeight:1 }} title="Back to zoo list">
+              🦒
+            </button>
+
+            <ZooManager zoos={zoos} activeZooId={activeZooId} setActiveZooId={id => { setActiveZooId(id); isInit.current=false; }} addZoo={addZoo} renameZoo={renameZoo} deleteZoo={deleteZoo} />
+
+            {/* Sync pill */}
             {syncStatus !== 'idle' && (
-              <div style={{ fontSize:11, color:syncColors[syncStatus], padding:'3px 8px', background:`${syncColors[syncStatus]}18`, borderRadius:20, border:`1px solid ${syncColors[syncStatus]}44`, whiteSpace:'nowrap' }}>
-                {syncLabels[syncStatus]}{syncMsg ? ` · ${syncMsg}` : ''}
+              <div style={{ fontSize:11, color:syncColors[syncStatus], padding:'2px 7px', background:`${syncColors[syncStatus]}18`, borderRadius:20, border:`1px solid ${syncColors[syncStatus]}44`, flexShrink:0 }}>
+                {syncLabels[syncStatus]} {syncMsg}
               </div>
             )}
 
             <div style={{ flex:1 }} />
-            <button onClick={() => openBuilder()} style={{ display:'flex', alignItems:'center', gap:5, background:theme.accentBg, border:`1px solid ${theme.accentBorder}`, borderRadius:8, padding:'5px 11px', color:theme.accentLight, fontSize:12, fontWeight:600, cursor:'pointer', whiteSpace:'nowrap' }}>🏗️ Builder</button>
-            <button onClick={() => setZoopediaOpen(true)} style={{ display:'flex', alignItems:'center', gap:5, background:'#1a1028', border:'1px solid #3a2848', borderRadius:8, padding:'5px 11px', color:'#9a70c8', fontSize:12, fontWeight:600, cursor:'pointer', whiteSpace:'nowrap' }}>📖 Zoopedia</button>
-            <div onClick={() => setPzVersion(v=>v==='PZ1'?'PZ2':'PZ1')} style={{ display:'flex', alignItems:'center', gap:6, background:theme.accentBg, border:`1px solid ${theme.accentBorder}`, borderRadius:20, padding:'4px 12px', cursor:'pointer', userSelect:'none', whiteSpace:'nowrap' }}>
-              <div style={{ width:7, height:7, borderRadius:'50%', background:theme.accentLight }} />
-              <span style={{ color:theme.accentLight, fontSize:12, fontWeight:700 }}>▶ {theme.name}</span>
+
+            {/* Tools palette button */}
+            <button onClick={() => setPaletteOpen(v=>!v)}
+              style={{ display:'flex', alignItems:'center', gap:5, background:paletteOpen?theme.accentBg:'transparent', border:`1px solid ${paletteOpen?theme.accent:theme.accentBorder}`, borderRadius:8, padding:'5px 11px', color:paletteOpen?theme.accentLight:'#7a9460', fontSize:12, fontWeight:600, cursor:'pointer', whiteSpace:'nowrap' }}>
+              🛠️ Tools {paletteOpen ? '▲' : '▼'}
+            </button>
+
+            {/* PZ toggle */}
+            <div onClick={() => setPzVersion(v=>v==='PZ1'?'PZ2':'PZ1')}
+              style={{ display:'flex', alignItems:'center', gap:6, background:theme.accentBg, border:`1px solid ${theme.accentBorder}`, borderRadius:20, padding:'4px 12px', cursor:'pointer', userSelect:'none', whiteSpace:'nowrap' }}>
+              <div style={{ width:6, height:6, borderRadius:'50%', background:theme.accentLight }} />
+              <span style={{ color:theme.accentLight, fontSize:11, fontWeight:700 }}>▶ {theme.name}</span>
             </div>
           </div>
+
+          {/* Tools palette dropdown */}
+          {paletteOpen && (
+            <div style={{ display:'flex', gap:8, padding:'8px 0 10px', borderTop:`1px solid ${theme.accentBorder}` }}>
+              {[
+                { icon:'📖', label:'Zoopedia', sub:'Species reference', action:() => { setZoopediaOpen(true); setPaletteOpen(false); } },
+                { icon:'🏗️', label:'Habitat Builder', sub:'Plan & calculate', action:() => { openBuilder(); } },
+                { icon:'🎯', label:'Species Finder', sub:'Get recommendations', action:() => { setQuizOpen(true); setPaletteOpen(false); } },
+              ].map(t => (
+                <button key={t.label} onClick={t.action}
+                  style={{ display:'flex', alignItems:'center', gap:10, background:theme.accentBg, border:`1px solid ${theme.accentBorder}`, borderRadius:10, padding:'8px 14px', cursor:'pointer', textAlign:'left', flex:1, minWidth:0 }}>
+                  <span style={{ fontSize:20, flexShrink:0 }}>{t.icon}</span>
+                  <div style={{ minWidth:0 }}>
+                    <div style={{ fontSize:13, color:'#c8d8a8', fontWeight:600, whiteSpace:'nowrap' }}>{t.label}</div>
+                    <div style={{ fontSize:11, color:'#5a7050' }}>{t.sub}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Tab bar */}
           <div style={{ display:'flex', gap:1, overflowX:'auto' }}>
             {TABS.map(t => (
-              <button key={t.id} onClick={() => setTab(t.id)} style={{ background:tab===t.id?theme.tabActive:'transparent', border:'none', borderBottom:tab===t.id?`2px solid ${theme.accent}`:'2px solid transparent', color:tab===t.id?'#d8ecc0':'#4a6040', padding:'7px 13px', cursor:'pointer', fontSize:13, fontWeight:tab===t.id?600:400, whiteSpace:'nowrap', borderRadius:'5px 5px 0 0', transition:'color 0.15s' }}>
+              <button key={t.id} onClick={() => { setTab(t.id); setPaletteOpen(false); }} style={{
+                background:tab===t.id?theme.tabActive:'transparent', border:'none',
+                borderBottom:tab===t.id?`2px solid ${theme.accent}`:'2px solid transparent',
+                color:tab===t.id?'#d8ecc0':'#4a6040',
+                padding:'6px 12px', cursor:'pointer', fontSize:12, fontWeight:tab===t.id?600:400,
+                whiteSpace:'nowrap', borderRadius:'4px 4px 0 0', transition:'color 0.15s',
+              }}>
                 {t.label} {t.full}
               </button>
             ))}
@@ -269,7 +271,7 @@ export default function App() {
         </div>
       </div>
 
-      {/* ── Content ── */}
+      {/* ── Page content ── */}
       <div style={{ maxWidth:1280, margin:'0 auto', padding:'1.25rem 1rem' }}>
         {tab==='dashboard'    && <Dashboard animals={zoo.animals||[]} roster={zoo.roster||[]} habitats={zoo.habitats||[]} pzVersion={pzVersion} theme={theme} zooConfig={{ zooName:zoo.name, customStats:zoo.customStats }} setZooConfig={cfg=>updateZoo({ name:cfg.zooName, customStats:cfg.customStats })} onOpenBuilder={openBuilder} />}
         {tab==='inventory'    && <AnimalInventory animals={zoo.animals||[]} setAnimals={makeSetter('animals','Animals')} speciesList={speciesList} theme={theme} />}
@@ -279,28 +281,39 @@ export default function App() {
         {tab==='bloodlines'   && <BloodlineTracker
           bloodlines={zoo.bloodlines||[]}
           setBloodlines={(val) => {
-            // When a bloodline record is added, auto-seed a Roster entry
-            const newBloodlines = typeof val === 'function' ? val(zoo.bloodlines||[]) : val;
-            const existing = zoo.bloodlines || [];
-            const added = newBloodlines.filter(b => !existing.find(e => e.id === b.id));
+            const newBL = typeof val==='function' ? val(zoo.bloodlines||[]) : val;
+            const added = newBL.filter(b => !(zoo.bloodlines||[]).find(e=>e.id===b.id));
             if (added.length > 0) {
-              const newRoster = [...(zoo.roster||[])];
+              const newR = [...(zoo.roster||[])];
               added.forEach(b => {
-                if (!newRoster.find(r => r.name === b.name && r.species === b.species)) {
-                  newRoster.push({ id: Date.now() + Math.random(), species: b.species, name: b.name, sex: '', ageStage: 'Juvenile', fertility: '', immunity: '', size: '', longevity: '', appeal: '', mate: b.father && b.mother ? '' : '', offspring: '', disposition: 'Keep', isAlpha: false, isBonded: false, isOutsider: false, socialStructure: '' });
-                }
+                if (!newR.find(r=>r.name===b.name&&r.species===b.species))
+                  newR.push({ id:Date.now()+Math.random(), species:b.species, name:b.name, sex:'', ageStage:'Juvenile', fertility:'', immunity:'', size:'', longevity:'', appeal:'', mate:'', offspring:'', disposition:'Keep', isAlpha:false, isBonded:false, isOutsider:false, socialStructure:'' });
               });
-              makeSetter('roster','Roster')(newRoster);
+              makeSetter('roster','Roster')(newR);
             }
             makeSetter('bloodlines','Bloodlines')(val);
           }}
           roster={zoo.roster||[]} speciesList={speciesList} theme={theme} />}
         {tab==='peeps'        && <Peeps peeps={zoo.peeps||{zones:[],facilities:[],vendors:[],restaurants:[]}} setPeeps={makeSetter('peeps','Peeps')} theme={theme} habitats={zoo.habitats||[]} />}
-        {tab==='quiz'          && <HabitatQuiz theme={theme} onOpenBuilder={openBuilder} />}
       </div>
 
-      {zoopediaOpen && <Zoopedia theme={theme} onOpenBuilder={(sp)=>{setZoopediaOpen(false);openBuilder(sp);}} isModal onClose={()=>setZoopediaOpen(false)} />}
-      {builderOpen  && <HabitatBuilder onClose={()=>setBuilderOpen(false)} initialSpecies={builderSpecies} onCommit={handleBuilderCommit} theme={theme} />}
+      {/* ── Tool overlays ── */}
+      {zoopediaOpen && (
+        <Zoopedia theme={theme}
+          onOpenBuilder={sp => { setZoopediaOpen(false); openBuilder(sp); }}
+          isModal onClose={() => setZoopediaOpen(false)} />
+      )}
+      {builderOpen && (
+        <HabitatBuilder onClose={() => setBuilderOpen(false)} initialSpecies={builderSpecies} onCommit={handleBuilderCommit} theme={theme} />
+      )}
+      {quizOpen && (
+        <div style={{ position:'fixed', inset:0, zIndex:500, background:'rgba(0,0,0,0.7)', display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'2rem 1rem', overflowY:'auto' }}>
+          <div style={{ background:'#111a0f', border:`1px solid ${theme.accentBorder}`, borderRadius:14, width:'100%', maxWidth:640, padding:'1.5rem', position:'relative' }}>
+            <button onClick={() => setQuizOpen(false)} style={{ position:'absolute', top:14, right:14, background:'none', border:'none', color:'#5a7050', cursor:'pointer', fontSize:18 }}>✕</button>
+            <HabitatQuiz theme={theme} onOpenBuilder={sp => { setQuizOpen(false); openBuilder(sp); }} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
